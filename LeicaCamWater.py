@@ -67,7 +67,7 @@ class mainGUI(QtWidgets.QMainWindow):
     #gui elements whose name starts with '_' are excluded.
     GUIElements=[QtWidgets.QSlider,QtWidgets.QRadioButton,QtWidgets.QCheckBox,QtWidgets.QDoubleSpinBox,QtWidgets.QSpinBox,QtWidgets.QComboBox,QtWidgets.QLineEdit]
     _StartPosition=[]
-    _logpath='C:\dev\PyAGTUM\logs'
+    _logpath='C:\dev\logs'
 
     def __init__(self,uifile):
         QtWidgets.QMainWindow.__init__(self)

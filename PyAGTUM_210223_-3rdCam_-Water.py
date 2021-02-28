@@ -235,21 +235,6 @@ class LEICAchopperlog(log.valuelogger):
 
                 if self.parent.tapespeedlog.valuelog.__len__()>0:
                     currentTapeSpeed=np.float(self.parent.tapespeedlog.valuelog[-1])
-                    '''
-                    if cdelta < 0.4:
-                        self.parent.setTapeSpeed(currentTapeSpeed + 0.03*f)
-                        print("tape speed up")
-                    elif cdelta > -0.4:
-                        self.parent.setTapeSpeed(currentTapeSpeed - 0.03*f)
-                        print("tape slow down")
-                    else:
-                        self.parent.setTapeSpeed(self.parent.sbx_targetCycleSpeed.value())
-                        print("tape in sync")
-
-                        # tape speed 0.5 -> 14.3s
-                        # 0.4 -> ~16.3s
-                    '''
-
                     if self.parent.cbx_synCutting.isChecked():
                         durationRatio=CycleTime/TargetCycleTime
                         newTapeSpeed=max(0.0,min(5.0,currentTapeSpeed+\
@@ -274,7 +259,7 @@ class LEICAchopperlog(log.valuelogger):
                             # cdelta = ATUMcycle - LEICAcycle
                            # BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
 
-                            if abs(cdelta) < 0.5:
+                            if abs(cdelta) < 0.4:
                                 self.parent.setTapeSpeed(self.parent.sbx_targetCycleSpeed.value())
                                 print("tape in sync")
                             elif OffsetDiff < 0:

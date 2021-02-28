@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="4a4fa109-6e47-43cf-84ab-90dacacce35e" name="Default Changelist" comment="" />
+    <list default="true" id="4a4fa109-6e47-43cf-84ab-90dacacce35e" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/DefaultConfig_win-3rdCam_-Water.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/DefaultConfig_win-3rdCam_-Water.cfg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LeicaCamWater.py" beforeDir="false" afterPath="$PROJECT_DIR$/LeicaCamWater.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PyAGTUM_210223_-3rdCam_-Water.py" beforeDir="false" afterPath="$PROJECT_DIR$/PyAGTUM_210223_-3rdCam_-Water.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/leicacam.py" beforeDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -9,13 +14,16 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300" />
+    <leaf />
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
       <find>syrin</find>
       <find>network</find>
     </findStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
@@ -25,11 +33,12 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="1737" />
-    <option name="y" value="175" />
-    <option name="width" value="3864" />
-    <option name="height" value="2124" />
+    <option name="x" value="3885" />
+    <option name="y" value="10" />
+    <option name="width" value="3113" />
+    <option name="height" value="1296" />
   </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
     <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
@@ -50,6 +59,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
@@ -80,16 +90,17 @@
       <workItem from="1609882824395" duration="12988000" />
       <workItem from="1610825319721" duration="599000" />
       <workItem from="1613342644837" duration="415000" />
+      <workItem from="1614484278246" duration="61000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="15115000" />
+    <option name="totallyTimeSpent" value="15176000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="1158" y="117" width="2576" height="1416" extended-state="0" />
+    <frame x="3885" y="10" width="3113" height="1296" extended-state="0" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.19142176" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.23943663" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -102,7 +113,7 @@
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
-      <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" visible="true" weight="0.3291829" />
+      <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" visible="true" weight="0.37489253" />
       <window_info anchor="bottom" id="Terminal" order="11" />
       <window_info anchor="bottom" id="Python Console" order="12" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
@@ -133,22 +144,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM20191026.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM20191027.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM20191027a.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM20191024.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="391">
-          <caret line="207" column="20" selection-start-line="207" selection-start-column="20" selection-end-line="207" selection-end-column="20" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/PyAGTUM20191026.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM20191027.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM20191027a.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM20191024.py" />
     <entry file="file://$USER_HOME$/Desktop/Zhihao/pyATUMpni_210105_backup/pyATUMpni/serial_tests.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="204">
@@ -156,32 +155,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM_210112.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM_210212.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1">
-          <folding>
-            <element signature="e#56#78#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM_210213.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="34">
-          <caret line="2" column="16" lean-forward="true" selection-start-line="2" selection-start-column="16" selection-end-line="2" selection-end-column="16" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/PyAGTUM_210215.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="51">
-          <caret line="3" column="26" lean-forward="true" selection-start-line="3" selection-start-column="26" selection-end-line="3" selection-end-column="26" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210112.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210212.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210213.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210215.py" />
     <entry file="file://$PROJECT_DIR$/syringepump_tests20191010.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="561">
