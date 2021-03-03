@@ -2,8 +2,10 @@
 
 # based on PyAGTUM_210116
 # remove un-used functions, remove cbx_synRetractSpeed
-# 210223 not use the 3rd camera, remove pump
-# remove retract phase diff log
+# 210223 remove 3rd camera, remove pump
+# remove retract phase diff logs
+
+
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
 
@@ -31,53 +33,156 @@ if sys.platform.startswith('win'):
     win=1
 else:
     win=0
+    
+def draw_str(dst, target, s):
+    # copy from cv_samples.common
+    x, y = target
+    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 0), thickness = 2, lineType=cv2.LINE_AA)
+    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 255), lineType=cv2.LINE_AA)
 
-class CamTimer(log.valuelogger):
-    CameraSNs=[]
-    Cameras=[]
-    CamFrames=[]
-    CamFrameRate=10
-    def setupCams(self):
-        for icam,camSN in enumerate(self.CameraSNs):
-            cam=xiapi.Camera()
-            cam.open_device_by_SN(camSN)
+lk_params = dict( winSize  = (10, 10),
+                  maxLevel = 2,
+                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+feature_params = dict( maxCorners = 25,
+                       qualityLevel = 0.8,
+                       minDistance = 20,
+                       blockSize = 20 )
+
+class PreCamTimer(log.valuelogger):
+    def setupCams(self, camSN, CamFrame):
+        self.cam=xiapi.Camera()
+        self.cam.open_device_by_SN(camSN)
             # settings
-            cam.set_imgdataformat('XI_RGB24')
+        self.cam.set_imgdataformat('XI_RGB24')
             #1028*1232*3*20*24
-            cam.set_limit_bandwidth(750)
-            cam.set_exposure(10000)
-            cam.set_decimation_horizontal(2)
-            cam.set_decimation_vertical(2)
-            cam.set_framerate(self.CamFrameRate)
-            cam.frame=self.CamFrames[icam]
-            cam.name=self.CamFrames[icam].text()
-            cam.image=xiapi.Image()
-            self.Cameras.append(cam)
-
-        for cam in self.Cameras:
-            cam.start_acquisition()
+        self.cam.set_limit_bandwidth(750)
+        self.cam.set_exposure(10000)
+        self.cam.set_decimation_horizontal(2)
+        self.cam.set_decimation_vertical(2)
+        self.cam.set_framerate(10)
+        self.cam.frame=CamFrame
+ #           cam.name=self.CamFrames[icam].text()
+        self.cam.image=xiapi.Image()
+        self.cam.start_acquisition()
 
     def updateVis(self):
-        for cam in self.Cameras:
-            #get data and pass them from camera to img
-            try:
-                cam.get_image(cam.image)
+        #get data and pass them from camera to img
+        try:
+            self.cam.get_image(self.cam.image)
 #                print('Image read from ' + cam.name)
-                #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
+            #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
 
-                npimg=cam.image.get_image_data_numpy()
-                npimg=np.copy(npimg[::2,::2,:])
-    #            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
+            npimg=self.cam.image.get_image_data_numpy()
+            npimg=np.copy(npimg[::2,::2,:])
+#            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
 
-                Qimg = QtGui.QImage(npimg,npimg.shape[1],npimg.shape[0], QtGui.QImage.Format_RGB888)
-                pix = QtGui.QPixmap.fromImage(Qimg)
-                cam.frame.setPixmap(pix)
-            except:
-                print('Image skipped for ' + cam.name)
+            Qimg = QtGui.QImage(npimg,npimg.shape[1],npimg.shape[0], QtGui.QImage.Format_RGB888)
+            pix = QtGui.QPixmap.fromImage(Qimg)
+            self.cam.frame.setPixmap(pix)
+        except:
+            print('Image skipped')
 
     def datacollector(self):
         self.updateVis()
 
+
+class PostCamTimer(log.valuelogger):
+    historylength = 2000
+    def setupCams(self, camSN, CamFrame):
+        self.cam=xiapi.Camera()
+        self.cam.open_device_by_SN(camSN)
+            # settings
+        self.cam.set_imgdataformat('XI_RGB24')
+            #1028*1232*3*20*24
+        self.cam.set_limit_bandwidth(750)
+        self.cam.set_exposure(10000)
+        self.cam.set_decimation_horizontal(2)
+        self.cam.set_decimation_vertical(2)
+        self.cam.set_framerate(10)
+        self.cam.frame=CamFrame
+ #           cam.name=self.CamFrames[icam].text()
+        self.cam.image=xiapi.Image()
+        self.cam.start_acquisition()
+    
+        self.track_len = 20 # max number of locations of point to remember
+        self.detect_interval = 10
+        self.tracks = []
+        self.frame_idx = 0
+        self.speed = 0
+        self.time = []
+        self.speed_list = []
+
+    def datacollector(self):
+        #get data and pass them from camera to img
+        try:
+            self.cam.get_image(self.cam.image)
+            t1 = time.time()
+#                print('Image read from ' + cam.name)
+            #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
+
+            npimg=self.cam.image.get_image_data_numpy()
+            
+            vis=np.copy(npimg[::2,::2,:])
+#            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
+            if self.parent.cbx_TrackSpeed.isChecked():
+                frame_gray = cv2.cvtColor(vis, cv2.COLOR_BGR2GRAY)
+                if len(self.tracks) > 0:
+                    img0, img1 = self.prev_gray, frame_gray
+                    p0 = np.float32([tr[-1] for tr in self.tracks]).reshape(-1, 1, 2)
+                    p1, _st, _err = cv2.calcOpticalFlowPyrLK(img0, img1, p0, None, **lk_params)
+                    p0r, _st, _err = cv2.calcOpticalFlowPyrLK(img1, img0, p1, None, **lk_params)
+                    d = abs(p0-p0r).reshape(-1, 2).max(-1)
+                    good = d < 1
+                    new_tracks = []
+                    t20 = []
+                    for tr, (x, y), good_flag in zip(self.tracks, p1.reshape(-1, 2), good):
+                        if not good_flag:
+                            continue
+                        tr.append((x, y))
+                        if len(tr) > self.track_len:
+                            del tr[0]
+                            t20.append(tr[-1][0] - tr[0][0])
+                        new_tracks.append(tr)
+                        cv2.circle(vis, (x, y), 2, (0, 255, 0), -1)
+                    self.tracks = new_tracks
+                    cv2.polylines(vis, [np.int32(tr) for tr in self.tracks], False, (0, 255, 0))
+                    draw_str(vis, (20, 20), 'track count: %d' % len(self.tracks))
+                    if self.frame_idx % 20 == 0:
+                        self.time.append(t1)
+                        if len(self.time) > 2:
+                            speed = (sum(t20) / len(t20)) * 0.0136 / (self.time[-1] - self.time[-2])
+                            del self.time[0]
+                            self.speed_list.append(speed)
+                            if len(self.speed_list) > 5:
+                                self.speed = round(sum(self.speed_list)/6,3)
+                                self.speed_list = []
+                               # self.updateLog(self.speed)
+                                print('Cam Tape speed: %3f' % self.speed)
+                    # 0.0136mm per pixel
+                    draw_str(vis, (20, 40), 'speed: %3f' % self.speed)
+
+                if self.frame_idx % self.detect_interval == 0:
+                    mask = np.zeros_like(frame_gray)
+                    mask[:] = 255
+                    for x, y in [np.int32(tr[-1]) for tr in self.tracks]:
+                        cv2.circle(mask, (x, y), 5, 0, -1)
+                    p = cv2.goodFeaturesToTrack(frame_gray, mask = mask, **feature_params)
+                    if p is not None:
+                        for x, y in np.float32(p).reshape(-1, 2):
+                            self.tracks.append([(x, y)])
+
+                self.frame_idx += 1
+                self.prev_gray = frame_gray
+               # cv.imshow('lk_track', vis)
+
+            Qimg = QtGui.QImage(vis, vis.shape[1], vis.shape[0], QtGui.QImage.Format_RGB888)
+            pix = QtGui.QPixmap.fromImage(Qimg)
+            self.cam.frame.setPixmap(pix)
+        except:
+            print('Image skipped Post')
+
+        
 class ATUMcyledurationlog(log.valuelogger):
     historylength=500
     def updateVis(self):
@@ -165,8 +270,7 @@ class LEICAchopperlog(log.valuelogger):
 
             print("retract speed: {}".format(rs))
 
-                        # 210118 _zz_ use retract speed to keep phase offset
-             # sbx_retractFactor (default 0.5, which mean 100 +/-)
+            # 210118 _zz_ use retract speed to keep phase offset
             if self.parent.cbx_synOffset.isChecked():
                 delta = self.parent.Offsetlog.valuelog[-1] - self.parent.sbx_targetphase.value()
               #  LEICAcycle = self.parent.LEICAcutdurationlog.valuelog[-1] + self.parent.LEICAretractdurationlog.valuelog[-1]
@@ -224,7 +328,7 @@ class LEICAchopperlog(log.valuelogger):
                     if self.upStateStart.__len__()>1 and self.parent.ATUMchopperlog.upStateStart.__len__()>0:
                         offset=self.upStateStart[-1]-self.parent.ATUMchopperlog.upStateStart[-1]
 
-                        # 210130 ZZ adjust tape speed for each cycle
+                        # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
                         if self.parent.cbx_synTS.isChecked():
                             cdelta = offset - self.parent.sbx_targetphase.value()
 
@@ -262,7 +366,6 @@ class ATUMchopperlog(log.valuelogger):
     upStateStart=[]
     downStateStart=[]
     def updateVis(self):
-
         self.parent.ptsyncATUM_chopper.setData(self.timelog,self.valuelog)
 
     def datacollector(self):
@@ -284,7 +387,7 @@ class ATUMchopperlog(log.valuelogger):
             if self.upStateStart.__len__()>1:
                 ATUMcycle=np.diff(self.upStateStart[-2:])
                 self.parent.ATUMcyledurationlog.datacollector(ATUMcycle[-1])
-                print("ATUM cycle: {}, actual tape speed: {}".format(round(ATUMcycle[-1],2), round(6/ATUMcycle[-1],2)))
+                print("ATUM cycle: {}, actual tape speed: {}".format(round(ATUMcycle[-1],2), round(6/ATUMcycle[-1],3)))
                 print("tape tension: {}".format(round(Atum.gTT(),2)))
 
         if self.valuelog[-2]==1 and self.valuelog[-1]==0: #inter-slot phase starts
@@ -408,19 +511,15 @@ class mainGUI(QtWidgets.QMainWindow):
 
 
     def SetupHardware(self):
-        self.cbx_synRetractSpeed.setChecked(0)
+        self.PreCamTimer = PreCamTimer()
+        self.PreCamTimer.setupCams(self._CameraSNs[0], self._cam_presection)
+        self.PreCamTimer.initiateTimer(100, None, None, parent=self)
+        self.PreCamTimer.start()
 
-        self.CamTimer=CamTimer()
-        self.CamTimer.CameraSNs=self._CameraSNs
-
-        if not self._cam_presection in self.CamTimer.CamFrames:
-            self.CamTimer.CamFrames.append(self._cam_presection)
-        if not self._cam_postsection in self.CamTimer.CamFrames:
-            self.CamTimer.CamFrames.append(self._cam_postsection)
-
-        self.CamTimer.setupCams()
-        self.CamTimer.initiateTimer(100,None,None,parent=self)
-        self.CamTimer.start()
+        self.PostCamTimer = PostCamTimer()
+        self.PostCamTimer.setupCams(self._CameraSNs[1], self._cam_postsection)
+        self.PostCamTimer.initiateTimer(100, self._logpath,'CamTapeSpeed', parent=self)
+        self.PostCamTimer.start()
 
         self.syncATUM_chopper=nidaqmx.Task()
         self.syncATUM_chopper.di_channels.add_di_chan(self._syncATUM_chopperPort)
@@ -470,17 +569,19 @@ class mainGUI(QtWidgets.QMainWindow):
 
 
     def StopHardware(self):
-        self.CamTimer.stopLog()
-        for cam in self.CamTimer.Cameras:
-            cam.stop_acquisition()
-
+        self.PreCamTimer.stopLog()
+        self.PostCamTimer.stopLog()
+        self.PreCamTimer.cam.stop_acquisition()
+        self.PostCamTimer.cam.stop_acquisition()
+        self.PreCamTimer.cam.close_device()
+        self.PostCamTimer.cam.close_device()
         self.StopCams()
-
-        for cam in self.CamTimer.Cameras:
-            cam.close_device()
 
         self.syncATUM_chopper.close()
         self.syncLEICA_chopper.close()
+        
+        print("done closing hardware")
+        
 
     def closeEvent(self, event):
         self.StopHardware()
@@ -591,6 +692,6 @@ if __name__ == "__main__":
         sys.exit()
 
     print("Loading main GUI...")
-    window = mainGUI(os.path.join(application_path,"PyAGTUM_mainwindow_210223_-3rdCam_-Water.ui"))
+    window = mainGUI(os.path.join(application_path,"PyAGTUM_mainwindow_210302.ui"))
 
     sys.exit(app.exec_())

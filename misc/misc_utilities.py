@@ -22,11 +22,16 @@ frame=np.copy(frame[::2,::2,:])
 
 cam.stop_acquisition()
 cam.close_device()
-cv.imwrite("210301-cam_slot_shot.tif", frame)
+# cv.imwrite("210301-cam_slot_shot.tif", frame)
 # 0.0136mm per pixel
 
 
 #--------------------------------------------------------------------
+
+from ximea import xiapi
+import cv2 as cv
+import numpy as np
+
 def draw_str(dst, target, s):
     # copy from cv_samples.common
     x, y = target

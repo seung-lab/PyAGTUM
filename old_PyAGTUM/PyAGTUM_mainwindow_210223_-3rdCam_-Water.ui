@@ -87,6 +87,22 @@
       <string>Stop cams</string>
      </property>
     </widget>
+    <widget class="QCheckBox" name="cbx_TrackSpeed">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>140</y>
+       <width>141</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Track Speed</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+    </widget>
    </widget>
    <widget class="PlotWidget" name="pg_sync" native="true">
     <property name="geometry">
