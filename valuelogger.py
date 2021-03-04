@@ -51,9 +51,18 @@ class valuelogger(QtCore.QThread):
                         self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
                         self.fid=open(self.logfile,'w')
                 self.fid.write("{0},{1}\n".format(self.timelog[-1],self.valuelog[-1]))
-        if self.timelog.__len__()>self.historylength:
-            del self.timelog[:-self.historylength]
-            del self.valuelog[:-self.historylength]
+        if len(self.timelog)>self.historylength:
+            if not self.fid is None:
+                self.fid.close()
+                if not (self.filebasename is None or self.filebasepath is None):
+                    datestr=datetime.today().strftime('%Y%m%d%H%M%S')
+                    self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
+                    self.fid=open(self.logfile,'w')
+            self.timelog = self.timelog[-10:]
+            self.valuelog = self.valuelog[-10:]
+            # whenever it reaches historylength, save .csv, keep last 5, continue to log
+            #del self.timelog[:-self.historylength]
+            #del self.valuelog[:-self.historylength]
         self.updateVis()
 
     def stopLog(self):
