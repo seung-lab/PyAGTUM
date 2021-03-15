@@ -266,16 +266,11 @@ class LEICAchopperlog(log.valuelogger):
     downStateStart=[]
     prev_offset=0
     state=0 # 0 - cutting, 1 - retract
-    
+
     adjustment_counter = 0
 
     def updateVis(self):
         self.parent.ptsyncLEICA_chopper.setData(self.timelog,self.valuelog)
-        
-        if self.state==1:
-            self.cut_counter += 1
-        else:
-            self.retract_counter += 1
 
     def datacollector(self):
         chopperSignal=int(self.parent.syncLEICA_chopper.read())
@@ -357,19 +352,15 @@ class LEICAchopperlog(log.valuelogger):
                         # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
                         if self.parent.cbx_synTS.isChecked():
                             cdelta = offset - self.parent.sbx_targetphase.value()
+                            OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
 
                             # offset Leica - ATUM
                             # offset < 0 -> Leica happened then ATUM
                             # more minus -> ATUM later than leica too much
 
-                            OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
-                            
-
                             # ATUMcycle = np.mean(self.parent.ATUMcyledurationlog.valuelog[-2:])
                             # cdelta = ATUMcycle - LEICAcycle
-                           
-                           
-                           if abs(cdelta) > 0.4:
+                            if abs(cdelta) > 0.4:
                                self.adjustment_counter += 1
                                if OffsetDiff < 0:
                                    # not getting better
@@ -377,14 +368,13 @@ class LEICAchopperlog(log.valuelogger):
                                else:
                                    af = 1
                                if cdelta < 0:
-                                   self.parent.setTapeSpeed(BaseSpeed + f*af)
+                                   self.parent.setTapeSpeed(BaseSpeed + 0.03*af)
                                    print("tape speed up")
                                else:
-                                   self.parent.setTapeSpeed(BaseSpeed - f*af)
+                                   self.parent.setTapeSpeed(BaseSpeed - 0.03*af)
                                    print("tape slow down")
-                           
-                           
-
+                            else:
+                                print("in sync")
                         print("offset:{}".format(round(offset, 2)))
                         self.parent.Offsetlog.datacollector(offset)
         if self.adjustment_counter > 100:
