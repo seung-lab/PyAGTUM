@@ -50,6 +50,7 @@ class Thread(log.valuelogger):
 class waterlevellog(log.valuelogger):
     waterlevel=None
     waterwindow=20
+    historylength=2000
 
     def updateVis(self):
         self.parent.ptwaterlevel.setData(self.timelog,moving_average(self.valuelog,self.waterwindow,'same'))
@@ -118,7 +119,7 @@ class mainGUI(QtWidgets.QMainWindow):
         self.pg_waterlevel.addItem(self.ptwaterthres)
 
         self.waterlevellog=waterlevellog();
-        self.waterlevellog.initiateTimer(1000,self._logpath,'LeicaCamWaterLevel',parent=self)
+        self.waterlevellog.initiateTimer(50,self._logpath,'LeicaCamWaterLevel',parent=self)
 
     def StartCams(self):
         print("start log")

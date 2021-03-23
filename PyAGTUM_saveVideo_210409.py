@@ -14,6 +14,7 @@ import sys
 import os
 from AGTUMconfigparser import config
 from ximea import xiapi
+from datetime import datetime
 import time
 import nidaqmx
 import serial
@@ -28,11 +29,10 @@ import atumCmds_2 as Atum
 # import syringepump as Pump
 import valuelogger as log
 
-# leica_speed_list = np.arange(450,800,50)
-leica_speed_list = np.arange(1400,1800,200)
-
-
 application_path = os.path.dirname(__file__)
+
+videologpath = 'C:/dev/videologs'
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
 if sys.platform.startswith('win'):
     win=1
@@ -55,6 +55,7 @@ feature_params = dict( maxCorners = 25,
                        blockSize = 20 )
 
 class PreCamTimer(log.valuelogger):
+    #
     def setupCams(self, camSN, CamFrame):
         self.cam=xiapi.Camera()
         self.cam.open_device_by_SN(camSN)
@@ -71,17 +72,25 @@ class PreCamTimer(log.valuelogger):
         self.cam.image=xiapi.Image()
         self.cam.start_acquisition()
 
+        self.datestr = datetime.today().strftime('%Y%m%d%H%M%S')
+        self.out = cv2.VideoWriter(os.path.join(videologpath, 'PreCam_' + self.datestr + '.avi'), fourcc, 10.0, (616, 514))
+
     def updateVis(self):
         #get data and pass them from camera to img
         try:
             self.cam.get_image(self.cam.image)
 #                print('Image read from ' + cam.name)
-            #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
+            
 
             npimg=self.cam.image.get_image_data_numpy()
-            npimg=np.copy(npimg[::2,::2,:])
+            # cv2.imshow("XIMEA cams", npimg)
+            npimg=np.copy(npimg[::2,::2,::-1])
+            # downsample and also convert BGR (XIMEA) to RGB (Qt)
 #            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
+            # npimg = cv2.cvtColor(npimg, cv2.COLOR_BGR2RGB)
 
+            self.out.write(npimg)
+            
             Qimg = QtGui.QImage(npimg,npimg.shape[1],npimg.shape[0], QtGui.QImage.Format_RGB888)
             pix = QtGui.QPixmap.fromImage(Qimg)
             self.cam.frame.setPixmap(pix)
@@ -118,6 +127,10 @@ class PostCamTimer(log.valuelogger):
         self.time = []
         self.speed_list = []
 
+
+        self.datestr = datetime.today().strftime('%Y%m%d%H%M%S')
+        self.out = cv2.VideoWriter(os.path.join(videologpath, 'PostCam_' + self.datestr + '.avi'), fourcc, 10.0, (616, 514))
+
     def datacollector(self):
         #get data and pass them from camera to img
         try:
@@ -128,7 +141,9 @@ class PostCamTimer(log.valuelogger):
 
             npimg=self.cam.image.get_image_data_numpy()
             
-            vis=np.copy(npimg[::2,::2,:])
+            vis=np.copy(npimg[::2,::2,::-1])
+            # vis = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+            
 #            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
             if self.parent.cbx_TrackSpeed.isChecked():
                 frame_gray = cv2.cvtColor(vis, cv2.COLOR_BGR2GRAY)
@@ -192,13 +207,42 @@ class PostCamTimer(log.valuelogger):
                 self.prev_gray = frame_gray
                # cv.imshow('lk_track', vis)
 
+            self.out.write(vis)
+
+
             Qimg = QtGui.QImage(vis, vis.shape[1], vis.shape[0], QtGui.QImage.Format_RGB888)
             pix = QtGui.QPixmap.fromImage(Qimg)
             self.cam.frame.setPixmap(pix)
         except:
             print('Image skipped Post')
 
+        
+class ATUMcyledurationlog(log.valuelogger):
+    historylength=500
+    def updateVis(self):
+        1
+    def datacollector(self,value=None):
+        if value is None:
+           return
+        self.updateLog(value)
 
+class ATUMslotdurationlog(log.valuelogger):
+    historylength=500
+    def updateVis(self):
+        1
+    def datacollector(self,value=None):
+        if value is None:
+           return
+        self.updateLog(value)
+
+class ATUMinterslotdurationlog(log.valuelogger):
+    historylength=500
+    def updateVis(self):
+        1
+    def datacollector(self,value=None):
+        if value is None:
+           return
+        self.updateLog(value)
 
 class LEICAretractdurationlog(log.valuelogger):
     historylength=500
@@ -218,10 +262,21 @@ class LEICAcutdurationlog(log.valuelogger):
            return
         self.updateLog(value)
 
-class LEICAcycledurationlog(log.valuelogger):
+class TapeSpeedDifflog(log.valuelogger):
+    historylength=500
+  #  def updateVis(self): self.parent.ptTapeSpeedDiff.setData(self.timelog,self.valuelog)
+
+    def datacollector(self,value=None):
+        if value is None:
+           return
+        self.updateLog(value)
+
+
+class Offsetlog(log.valuelogger):
     historylength=500
     def updateVis(self):
-        1
+        self.parent.ptOffset.setData(self.timelog,self.valuelog)
+
     def datacollector(self,value=None):
         if value is None:
            return
@@ -234,8 +289,6 @@ class LEICAchopperlog(log.valuelogger):
     prev_offset=0
     state=0 # 0 - cutting, 1 - retract
 
-    leica_idx = 0
-
     adjustment_counter = 0
 
     def updateVis(self):
@@ -244,20 +297,15 @@ class LEICAchopperlog(log.valuelogger):
     def datacollector(self):
         chopperSignal=int(self.parent.syncLEICA_chopper.read())
         self.updateLog(chopperSignal)
-
+        BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
+        
+        
+        
         if self.valuelog.__len__()<2:
             return
 
         if self.valuelog[-1]==1 and self.valuelog[-2]==0: #cutting phase starts
             self.state = 0
-
-            print("leica_idx: {}".format(self.leica_idx))
-
-            if self.leica_idx % 20 == 0 and int(self.leica_idx / 20) < len(leica_speed_list):
-                self.parent.setReturnSpeed(leica_speed_list[int(self.leica_idx / 20)])
-            self.leica_idx += 1
-
-
             self.upStateStart.append(self.timelog[-1])
             rs,_ = Leica.getReturnSpeed()
 
@@ -277,12 +325,99 @@ class LEICAchopperlog(log.valuelogger):
                 if self.parent.LEICAretractdurationlog.valuelog.__len__()>0:
                     LEICAcycle = cutDuration + self.parent.LEICAretractdurationlog.valuelog[-1]
                     print("LEICA cycle: {}s".format(round(LEICAcycle,2)))
-                    self.parent.LEICAcycledurationlog.datacollector(LEICAcycle)
 
 
+            if self.parent.ATUMcyledurationlog.valuelog.__len__()>0:
+                CycleTime=self.parent.ATUMcyledurationlog.valuelog[-1]
+                TargetCycleTime=(self.parent._DistanceBetweenSlots/self.parent.sbx_targetCycleSpeed.value())
+                TapeSpeedDiff=CycleTime-TargetCycleTime
+                self.parent.TapeSpeedDifflog.datacollector(TapeSpeedDiff)
 
+                if self.parent.tapespeedlog.valuelog.__len__()>0:
+                    if self.upStateStart.__len__()>1 and self.parent.ATUMchopperlog.upStateStart.__len__()>0:
+                        offset=self.upStateStart[-1]-self.parent.ATUMchopperlog.upStateStart[-1]
+
+                        # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
+                        if self.parent.cbx_synTS.isChecked():
+                            cdelta = offset - self.parent.sbx_targetphase.value()
+                            OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
+
+                            # offset Leica - ATUM
+                            # offset < 0 -> Leica happened then ATUM
+                            # more minus -> ATUM later than leica too much
+
+                            # ATUMcycle = np.mean(self.parent.ATUMcyledurationlog.valuelog[-2:])
+                            # cdelta = ATUMcycle - LEICAcycle
+                            if abs(cdelta) > 0.4:
+                               self.adjustment_counter += 1
+                               if OffsetDiff < 0:
+                                   # not getting better
+                                   af = 2
+                               else:
+                                   af = 1
+                               if cdelta < 0:
+                                   self.parent.setTapeSpeed(BaseSpeed + 0.03*af)
+                                   print("tape speed up")
+                               else:
+                                   self.parent.setTapeSpeed(BaseSpeed - 0.03*af)
+                                   print("tape slow down")
+                            else:
+                                print("in sync")
+                        print("offset:{}".format(round(offset, 2)))
+                        self.parent.Offsetlog.datacollector(offset)
+        if self.adjustment_counter > 100:
+            self.parent.setTapeSpeed(BaseSpeed)
+            self.adjustment_counter = 0
+        elif self.adjustment_counter > 0:
+            self.adjustment_counter += 1
         del self.upStateStart[:-3]
         del self.downStateStart[:-3]
+
+class ATUMchopperlog(log.valuelogger):
+    historylength=2000
+    upStateStart=[]
+    downStateStart=[]
+    def updateVis(self):
+        self.parent.ptsyncATUM_chopper.setData(self.timelog,self.valuelog)
+
+    def datacollector(self):
+        chopperSignal=int(self.parent.syncATUM_chopper.read())
+        #invert chopper signal
+        if chopperSignal==1:
+            chopperSignal=0
+        elif chopperSignal==0:
+            chopperSignal=1
+
+        self.updateLog(chopperSignal)
+        if self.valuelog.__len__()<2:
+            return
+        if self.valuelog[-1]==1 and self.valuelog[-2]==0: #slot phase starts
+            self.upStateStart.append(self.timelog[-1])
+            if self.downStateStart.__len__()>0:
+                interslotDuration=self.upStateStart[-1]-self.downStateStart[-1]
+                self.parent.ATUMinterslotdurationlog.datacollector(interslotDuration)
+            if self.upStateStart.__len__()>1:
+                ATUMcycle=np.diff(self.upStateStart[-2:])
+                self.parent.ATUMcyledurationlog.datacollector(ATUMcycle[-1])
+                print("ATUM cycle: {}, actual tape speed: {}".format(round(ATUMcycle[-1],2), round(6/ATUMcycle[-1],3)))
+                print("tape tension: {}".format(round(Atum.gTT(),2)))
+
+        if self.valuelog[-2]==1 and self.valuelog[-1]==0: #inter-slot phase starts
+            self.downStateStart.append(self.timelog[-1])
+            if self.upStateStart.__len__()>0:
+                slotDuration=self.downStateStart[-1]-self.upStateStart[-1]
+                self.parent.ATUMslotdurationlog.datacollector(slotDuration)
+        del self.upStateStart[:-3]
+        del self.downStateStart[:-3]
+
+
+class tapespeedlog(log.valuelogger):
+    historylength=500
+    def datacollector(self,value=None):
+        if (value is None):
+            value=Atum.gTS()
+        self.updateLog(value)
+        #print("Tension: {0}".format(Atum.gTT()))
 
 class retractspeedlog(log.valuelogger):
     historylength=500
@@ -332,6 +467,15 @@ class mainGUI(QtWidgets.QMainWindow):
         print("Show GUI...")
         self.show()
 
+    def setTapeSpeed(self,value=None):
+        if value is None:
+            value=self.sbx_tapeSpeed.value()
+        else:
+            self.sbx_tapeSpeed.blockSignals(True)
+            self.sbx_tapeSpeed.setValue(value)
+            self.sbx_tapeSpeed.blockSignals(False)
+        Atum.sTS(value)
+
     def setReturnSpeed(self,value=None):
         if value is None:
             value=self.sbx_retractionSpeed.value()
@@ -349,16 +493,33 @@ class mainGUI(QtWidgets.QMainWindow):
         self.retractspeedlog=retractspeedlog();
         self.retractspeedlog.initiateTimer(1000,self._logpath,'retractspeed',parent=self)
 
+        self.tapespeedlog=tapespeedlog();
+        self.tapespeedlog.initiateTimer(1000,self._logpath,'tapespeed',parent=self)
+
+        self.ATUMchopperlog=ATUMchopperlog();
+        self.ATUMchopperlog.initiateTimer(50,self._logpath,'ATUMchopper',parent=self)
 
         self.LEICAchopperlog=LEICAchopperlog();
         self.LEICAchopperlog.initiateTimer(50,self._logpath,'LEICAchopper',parent=self)
 
+        self.ATUMslotdurationlog=ATUMslotdurationlog()
+        self.ATUMslotdurationlog.initiateTimer(1000,self._logpath,'ATUMslotduration',parent=self)
+        self.ATUMinterslotdurationlog=ATUMinterslotdurationlog()
+        self.ATUMinterslotdurationlog.initiateTimer(1000,self._logpath,'ATUMinterslotduration',parent=self)
         self.LEICAretractdurationlog=LEICAretractdurationlog()
         self.LEICAretractdurationlog.initiateTimer(1000,self._logpath,'LEICAretractduration',parent=self)
         self.LEICAcutdurationlog=LEICAcutdurationlog()
         self.LEICAcutdurationlog.initiateTimer(1000,self._logpath,'LEICAcutduration',parent=self)
-        self.LEICAcycledurationlog=LEICAcutdurationlog()
-        self.LEICAcycledurationlog.initiateTimer(1000,self._logpath,'LEICAcycleduration',parent=self)
+
+        self.TapeSpeedDifflog=TapeSpeedDifflog()
+        self.TapeSpeedDifflog.initiateTimer(1000,self._logpath,'TapeSpeedDiff',parent=self)
+
+        self.Offsetlog=Offsetlog()
+        self.Offsetlog.initiateTimer(1000,self._logpath,'Offset',parent=self)
+
+        self.ATUMcyledurationlog=ATUMcyledurationlog()
+        self.ATUMcyledurationlog.initiateTimer(1000,self._logpath,'ATUMcyleduration',parent=self)
+
 
     def SetupHardware(self):
         self.PreCamTimer = PreCamTimer()
@@ -370,33 +531,63 @@ class mainGUI(QtWidgets.QMainWindow):
         self.PostCamTimer.setupCams(self._CameraSNs[1], self._cam_postsection)
         self.PostCamTimer.initiateTimer(100, self._logpath,'CamTapeSpeed', parent=self)
         self.PostCamTimer.start()
+
+        self.syncATUM_chopper=nidaqmx.Task()
+        self.syncATUM_chopper.di_channels.add_di_chan(self._syncATUM_chopperPort)
         self.syncLEICA_chopper=nidaqmx.Task()
         self.syncLEICA_chopper.di_channels.add_di_chan(self._syncLEICA_chopperPort)
 
     def StartCams(self):
+
+        Atum.Start()
+
         print("start cameras")
+
+ #       v=self.sbx_tapeSpeed.value()        
+ #       self.setTapeSpeed(1)
+ #       self.sbx_tapeSpeed.setValue(v)
+        self.setTapeSpeed()
+
+        self.setReturnSpeed()
+
         self.retractspeedlog.start()
+        self.ATUMchopperlog.start()
         self.LEICAchopperlog.start()
 
+        self.ATUMslotdurationlog.start()
+        self.ATUMinterslotdurationlog.start()
         self.LEICAretractdurationlog.start()
         self.LEICAcutdurationlog.start()
 
-        self.LEICAcycledurationlog.start()
-
-        Leica.startCuttingMotor()
+        self.tapespeedlog.start()
+        self.TapeSpeedDifflog.start()
+        self.Offsetlog.start()
+        self.ATUMcyledurationlog.start()
 
     def StopCams(self):
         print("stopped cameras")
         Atum.Stop()
+        self.retractspeedlog.stopLog()
+        self.ATUMchopperlog.stopLog()
         self.LEICAchopperlog.stopLog()
+
+        self.ATUMslotdurationlog.stopLog()
+        self.ATUMinterslotdurationlog.stopLog()
         self.LEICAretractdurationlog.stopLog()
         self.LEICAcutdurationlog.stopLog()
-        self.LEICAcycledurationlog.stopLog()
 
-        Leica.stopCuttingMotor()
+        self.tapespeedlog.stopLog()
+        self.TapeSpeedDifflog.stopLog()
+        self.Offsetlog.stopLog()
+        self.ATUMcyledurationlog.stopLog()
 
 
     def StopHardware(self):
+
+        self.PreCamTimer.out.release()
+        self.PostCamTimer.out.release()
+
+
         self.PreCamTimer.stopLog()
         self.PostCamTimer.stopLog()
         self.PreCamTimer.cam.stop_acquisition()
@@ -404,6 +595,8 @@ class mainGUI(QtWidgets.QMainWindow):
         self.PreCamTimer.cam.close_device()
         self.PostCamTimer.cam.close_device()
         self.StopCams()
+
+        self.syncATUM_chopper.close()
         self.syncLEICA_chopper.close()
         
         print("done closing hardware")
@@ -474,6 +667,9 @@ class mainGUI(QtWidgets.QMainWindow):
         self.btn_StartCams.clicked.connect(self.StartCams)
         self.btn_StopCams.clicked.connect(self.StopCams)
         self.sbx_retractionSpeed.valueChanged.connect(self.setReturnSpeed)
+        self.sbx_tapeSpeed.valueChanged.connect(self.setTapeSpeed)
+        self.btn_TapeStart.clicked.connect(self.TapeStart)
+        self.btn_TapeStop.clicked.connect(self.TapeStop)
 
     def TapeStart(self):
         if self.radiobtn_forward.isChecked():
