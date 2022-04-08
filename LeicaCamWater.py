@@ -10,11 +10,14 @@ import sys
 import os
 import paintableqlabel
 import cv2
+import csv #EWH
 
 import numpy as np
 
 import syringepump as Pump
 import valuelogger as log
+
+import time #EWH
 
 # https://stackoverflow.com/questions/44404349/pyqt-showing-video-stream-from-opencv/44404713
 
@@ -50,18 +53,40 @@ class Thread(log.valuelogger):
 class waterlevellog(log.valuelogger):
     waterlevel=None
     waterwindow=20
-    historylength=2000
+    historylength=3000
 
     def updateVis(self):
         self.parent.ptwaterlevel.setData(self.timelog,moving_average(self.valuelog,self.waterwindow,'same'))
         self.parent.sldr_WaterThres.setMinimum(min(self.parent.pg_waterlevel.getAxis('left').range))
         self.parent.sldr_WaterThres.setMaximum(max(self.parent.pg_waterlevel.getAxis('left').range))
+        
+        #print(moving_average(self.valuelog,self.waterwindow,'same'))
+        
+        self.parent.DisplayCurrentLevel.setHtml(str(round(np.average(self.valuelog[(-1*self.waterwindow):-1]))))
 
     def datacollector(self):
         self.updateLog(self.waterlevel)
+        
         if self.parent.cbx_pumpOn.isChecked():
+#            cycleduration = self.parent.sbx_CycleDurationSet.value()
+#            period_start = time.time()
+#            period_end = period_start + cycleduration
+#            with open('C:\dev\logs\waterlevel.csv', 'a', newline='') as f: #EWH
+#                writer = csv.writer(f) #EWH
+#                writer.writerow(str(round(self.waterlevel,4))) #EWH 
+            
             if np.average(self.valuelog[(-1*self.waterwindow):-1])<self.parent.sldr_WaterThres.value()-self.parent.sbx_WaterThresRange.value():
                 Pump.trigger_pump()
+                row = [1] #EWH
+                with open('C:\dev\logs\waterpumps.csv', 'a', newline='') as f: #EWH
+                    writer = csv.writer(f) #EWH
+                    writer.writerow(row) #EWH
+            else:
+                row = [0] #EWH
+                with open('C:\dev\logs\waterpumps.csv', 'a', newline='') as f: #EWH
+                    writer = csv.writer(f) #EWH
+                    writer.writerow(row) #EWH
+                
 
 class mainGUI(QtWidgets.QMainWindow):
     #gui elements whose value/state is saved in the configuration file.
@@ -102,20 +127,45 @@ class mainGUI(QtWidgets.QMainWindow):
 #        th.changePixmap.connect(self.setImage)
         self.CamTh.start()
         self.show()
+        
+    def setCycleDuration(self,value=None):
+        if value is None:
+            value=self.sbx_CycleDurationSet.value()
+        else:
+            self.sbx_CycleDurationSet.blockSignals(True)
+            self.sbx_CycleDurationSet.setValue(value)
+            self.sbx_CycleDurationSet.blockSignals(False)
 
     def WaterThresholdChanged(self):
         newValue=self.sldr_WaterThres.value()
         self.ptwaterthres.setValue(newValue)
         print("Threshold updated: {0}".format(newValue))
+        
+    def WaterUpperLimChanged(self):
+        newValue = self.sbx_WaterLevelUpperLim.value()
+        self.ptwaterupperlim.setValue(newValue)
+        print("Upper Limit updated: {0}".format(newValue))
+        
+    def WaterLowerLimChanged(self):
+        newValue = self.sbx_WaterLevelLowerLim.value()
+        self.ptwaterlowerlim.setValue(newValue)
+        print("Upper Limit updated: {0}".format(newValue))
 
     def ConnectGUISlots(self):
         self.btn_StartCams.clicked.connect(self.StartCams)
         self.btn_StopCams.clicked.connect(self.StopCams)
         self.sldr_WaterThres.valueChanged.connect(self.WaterThresholdChanged)
 
+        self.sbx_WaterLevelUpperLim.valueChanged.connect(self.WaterUpperLimChanged)
+        self.sbx_WaterLevelLowerLim.valueChanged.connect(self.WaterLowerLimChanged)
+
     def SetupWaterLog(self):
         self.ptwaterlevel=self.pg_waterlevel.plot(pen=(0, 255, 200, 200))
         self.ptwaterthres=pg.InfiniteLine(pen=(255, 0, 0, 200),angle=0,movable=False)
+        self.ptwaterupperlim=pg.InfiniteLine(angle=0, movable=False)
+        self.ptwaterlowerlim=pg.InfiniteLine(angle=0, movable=False)
+        self.pg_waterlevel.addItem(self.ptwaterupperlim)
+        self.pg_waterlevel.addItem(self.ptwaterlowerlim)
         self.pg_waterlevel.addItem(self.ptwaterthres)
 
         self.waterlevellog=waterlevellog();
@@ -133,6 +183,6 @@ class mainGUI(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     print("Loading main GUI...")
-    window = mainGUI(os.path.join(application_path,"LeicaCam_Window_210215.ui"))
+    window = mainGUI(os.path.join(application_path,"LeicaCam_Window_210215_EWH.ui"))
 
     sys.exit(app.exec_())

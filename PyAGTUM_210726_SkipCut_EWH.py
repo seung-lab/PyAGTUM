@@ -4,15 +4,18 @@
 # remove un-used functions, remove cbx_synRetractSpeed
 # 210223 remove 3rd camera, remove pump
 # remove retract phase diff logs
+# 210312 spring change on 210310
 
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
+from PIL import ImageQt
 
 import sys
 import os
 from AGTUMconfigparser import config
 from ximea import xiapi
+from datetime import datetime
 import time
 import nidaqmx
 import serial
@@ -26,8 +29,15 @@ import leicaCmds as Leica
 import atumCmds_2 as Atum
 # import syringepump as Pump
 import valuelogger as log
+import barcode_reader as barcode
+#from threading import timer #EWH
 
 application_path = os.path.dirname(__file__)
+
+# videologpath = 'C:\dev\videologs'
+# fourcc = cv2.VideoWriter_fourcc(*'XVID')
+# datestr=datetime.today().strftime('%Y%m%d%H%M%S')
+# out = cv2.VideoWriter(os.path.join(videologpath,self.name + '_' + datestr + '.avi'),fourcc, 20.0, (616,514))
 
 if sys.platform.startswith('win'):
     win=1
@@ -45,11 +55,12 @@ lk_params = dict( winSize  = (10, 10),
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 feature_params = dict( maxCorners = 25,
-                       qualityLevel = 0.8,
+                       qualityLevel = 0.6,
                        minDistance = 20,
                        blockSize = 20 )
 
 class PreCamTimer(log.valuelogger):
+    # sefl.name = "PreCam"
     def setupCams(self, camSN, CamFrame):
         self.cam=xiapi.Camera()
         self.cam.open_device_by_SN(camSN)
@@ -66,29 +77,70 @@ class PreCamTimer(log.valuelogger):
         self.cam.image=xiapi.Image()
         self.cam.start_acquisition()
 
+
+
     def updateVis(self):
         #get data and pass them from camera to img
         try:
             self.cam.get_image(self.cam.image)
-#                print('Image read from ' + cam.name)
-            #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
-
+    #                print('Image read from ' + cam.name)
+            
+    
             npimg=self.cam.image.get_image_data_numpy()
-            npimg=np.copy(npimg[::2,::2,:])
-#            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
-
+            # cv2.imshow("XIMEA cams", npimg)
+            
+            barcode_img = npimg[800:1200, 125:1125] #EWH
+            
+            
+            
+            npimg=np.copy(npimg[::2,::2,::-1])
+    #            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
+            
             Qimg = QtGui.QImage(npimg,npimg.shape[1],npimg.shape[0], QtGui.QImage.Format_RGB888)
             pix = QtGui.QPixmap.fromImage(Qimg)
-            self.cam.frame.setPixmap(pix)
+            self.cam.frame.setPixmap(pix)        
+            
+            ###EWH: the below code takes the image and processes it so that is 
+            #is only a barcode that can then be read by the Barcode_Reader_Final_EWH.py
+            #Credit: Nico Kemnitz
+            
+            # Convert to HSV (Hue-Saturation-Value), pick hue
+            img_hsv = cv2.cvtColor(barcode_img, cv2.COLOR_RGB2HSV)
+            hue = img_hsv[..., 0]
+            
+            # https://docs.opencv.org/4.x/d7/d4d/tutorial_py_thresholding.html
+            # Otsu's Binarization to pick threshold for bimodal distribution - not sure if that always works?
+            _, mask = cv2.threshold(hue, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            # Count white pixels for each column
+            vcount = (mask > 0).astype(np.uint8).sum(axis=0).astype(np.uint8)
+            
+            # Another Otsu to get a good threshold value for white pixels per column - note that max height of image must be less than 256
+            threshold, mask = cv2.threshold(vcount, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            mask = ~mask
+            
+            # Generate image with same shape as input and repeat mask vertically
+            barcode_img = np.repeat(mask.reshape(1,-1), barcode_img.shape[0], axis=0)
+            #cv2.imwrite("C:/dev/data/barcode_out.png", barcode_img)
+            
+            ###EWH This is hard coded and will need to be fixed at some point - EWH
+            
+            cv2.imwrite("C:/dev/data/barcode_out.png", barcode_img)
+           
         except:
             print('Image skipped')
+
+        
+        barcode_img = npimg[800:1200, 125:1125]
+
+
 
     def datacollector(self):
         self.updateVis()
 
 
 class PostCamTimer(log.valuelogger):
-    historylength = 2000
+    historylength = 4000
     def setupCams(self, camSN, CamFrame):
         self.cam=xiapi.Camera()
         self.cam.open_device_by_SN(camSN)
@@ -114,17 +166,18 @@ class PostCamTimer(log.valuelogger):
         self.speed_list = []
 
     def datacollector(self):
+        
         #get data and pass them from camera to img
         try:
             self.cam.get_image(self.cam.image)
             t1 = time.time()
-#                print('Image read from ' + cam.name)
+    #                print('Image read from ' + cam.name)
             #cv2.imshow("XIMEA cams", img.get_image_data_numpy())
-
+    
             npimg=self.cam.image.get_image_data_numpy()
             
-            vis=np.copy(npimg[::2,::2,:])
-#            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
+            vis=np.copy(npimg[::2,::2,::-1])
+    #            print('{0} {1}'.format(npimg.shape[0],npimg.shape[1]))
             if self.parent.cbx_TrackSpeed.isChecked():
                 frame_gray = cv2.cvtColor(vis, cv2.COLOR_BGR2GRAY)
                 if len(self.tracks) > 0:
@@ -151,17 +204,28 @@ class PostCamTimer(log.valuelogger):
                     if self.frame_idx % 20 == 0:
                         self.time.append(t1)
                         if len(self.time) > 2:
-                            speed = (sum(t20) / len(t20)) * 0.0136 / (self.time[-1] - self.time[-2])
+                            self.speed = (sum(t20) / len(t20)) * 0.0136 / (self.time[-1] - self.time[-2])
                             del self.time[0]
-                            self.speed_list.append(speed)
-                            if len(self.speed_list) > 5:
-                                self.speed = round(sum(self.speed_list)/6,3)
-                                self.speed_list = []
-                               # self.updateLog(self.speed)
-                                print('Cam Tape speed: %3f' % self.speed)
+                            self.updateLog(self.speed)
+                            print('Cam Tape speed: %3f' % self.speed)
+                            '''
+                            self.speed_list.append(self.speed)
+                            if len(self.speed_list) > 3:
+                                s1 = sum(self.speed_list[-3:])/3
+                                if s1 > 0.35:
+                                    self.parent.setTapeSpeed(0.39)
+                                    self.speed_list = []
+                                elif s1 < 0.325:
+                                    self.parent.setTapeSpeed(0.43)
+                                    self.speed_list = [] 
+                                else:
+                                    self.parent.setTapeSpeed(0.41)
+                                    del self.speed_list[0]
+                             '''   
+                                
                     # 0.0136mm per pixel
                     draw_str(vis, (20, 40), 'speed: %3f' % self.speed)
-
+    
                 if self.frame_idx % self.detect_interval == 0:
                     mask = np.zeros_like(frame_gray)
                     mask[:] = 255
@@ -171,14 +235,16 @@ class PostCamTimer(log.valuelogger):
                     if p is not None:
                         for x, y in np.float32(p).reshape(-1, 2):
                             self.tracks.append([(x, y)])
-
+    
                 self.frame_idx += 1
                 self.prev_gray = frame_gray
                # cv.imshow('lk_track', vis)
-
+    
             Qimg = QtGui.QImage(vis, vis.shape[1], vis.shape[0], QtGui.QImage.Format_RGB888)
             pix = QtGui.QPixmap.fromImage(Qimg)
             self.cam.frame.setPixmap(pix)
+            
+   
         except:
             print('Image skipped Post')
 
@@ -248,12 +314,19 @@ class Offsetlog(log.valuelogger):
            return
         self.updateLog(value)
 
+
 class LEICAchopperlog(log.valuelogger):
     historylength=2000
     upStateStart=[]
     downStateStart=[]
     prev_offset=0
-    state='none'
+    state=0 # 0 - cutting, 1 - retract
+
+    adjustment_counter = 0
+    time_nose_cycle = 0 #EWH
+    skip_checked= [0, 0, 0]
+    StopCutTime = 0
+    StartPauseTime = 0 #EWH
 
     def updateVis(self):
         self.parent.ptsyncLEICA_chopper.setData(self.timelog,self.valuelog)
@@ -261,47 +334,109 @@ class LEICAchopperlog(log.valuelogger):
     def datacollector(self):
         chopperSignal=int(self.parent.syncLEICA_chopper.read())
         self.updateLog(chopperSignal)
+        BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
+        
+        
+            # turn off cutting for 5 cycles, only happen during retraction phase
+        self.skip_checked.append(self.parent.cbx_skip.isChecked())
+        self.skip_checked.pop(0)
+        if self.parent.cbx_skip.isChecked():
+            if not self.skip_checked[-2]:
+                self.parent.StopCut()
+                self.StopCutTime = self.timelog[-1]
+                # turn off synchronization
+                self.parent.cbx_synTS.setChecked(False)
+            if self.parent.ATUMcyledurationlog.valuelog.__len__()>0:
+                
+                NumSet = self.parent.sbx_NumSections.value()
+                
+                
+                if self.timelog[-1] - self.StopCutTime > self.parent.ATUMcyledurationlog.valuelog[-1]*NumSet:
+                    self.parent.StartCut()
+                    self.StopCutTime = self.timelog[-1]
+                    self.parent.cbx_skip.setChecked(False)
+                    self.parent.cbx_synTS.setChecked(True)
+
+
+############################## UNDER CONSTRUCTION ##############################
+#    def datacollector(self):
+#        chopperSignal=int(self.parent.syncLEICA_chopper.read())
+#        self.updateLog(chopperSignal)
+#        BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
+#        
+#        
+#            # turn off cutting for 5 cycles, only happen during retraction phase
+#        self.skip_checked.append(self.parent.cbx_skip.isChecked())
+#        self.skip_checked.pop(0)
+#        if self.skip_checked[-2]:
+#            wait_cycles = 14 + self.parent.ATUMcyledurationlog.valuelog.__len__
+
+#        if wait_cycles == self.parent.ATUMcyledurationlog.valuelog.__len__:
+#            if self.parent.cbx_skip.isChecked():
+#                
+#                if self.state == 0: #EWH
+#                    if not self.skip_checked[-2]: #EWH
+#                        print("entered into stop cut area")
+#                        print(self.skip_checked)
+#                        if self.skip_checked[-14]:
+#                            self.parent.StopCut()
+#                            self.StopCutTime = self.timelog[-1]
+#                            # turn off synchronization
+#                            self.parent.cbx_synTS.setChecked(False)
+#                        
+#                        if self.parent.ATUMcyledurationlog.valuelog.__len__()>0:
+#                            
+#                            NumSet = self.parent.sbx_NumSections.value()
+#                                                
+#                            if self.timelog[-1] - self.StopCutTime > self.parent.ATUMcyledurationlog.valuelog[-1]*NumSet:
+#                                print("entered into start cut")
+#                                self.parent.StartCut()
+#                                self.StopCutTime = self.timelog[-1]
+#                                self.parent.cbx_skip.setChecked(False)
+#                                self.parent.cbx_synTS.setChecked(True)
+
+#                    print("entered into if not self.skip_checked[-2]")
+#                    print(self.skip_checked)
+#                    self.StartPauseTime = self.timelog[-1] #EWH
+#                    
+#                    #This is where the delay needs for the wait
+#                    
+#                    dist_nose = 15*6 #EWH: This is hard coded by current gridtape 
+#                                 # specs (15 apertues, 6 mm apart) 
+#                    svalue=Atum.gTS() 
+#                    print(f"Speed of Tape for Eric: {svalue}")
+#                    #svalue=int(svalue)
+#                    time_nose=dist_nose / svalue #EWH: time to get to the nose from cams
+#                    ATUMcycle=np.diff(self.upStateStart[-2:])
+#                    print(f"ATUM cycle time for Eric: {ATUMcycle}")
+#                    self.time_nose_cycle = time_nose - ATUMcycle
+#                    self.time_nose_cycle = int(self.time_nose_cycle[0])
+#                    print(f"Waiting: {self.time_nose_cycle} seconds")
+#                    print(self.timelog[-1] - self.StartPauseTime)
+    #EWH: this is not working as intendend... always 0
+############################# UNDER CONSTRUCTION ##############################                     
+        
+        
         if self.valuelog.__len__()<2:
             return
 
         if self.valuelog[-1]==1 and self.valuelog[-2]==0: #cutting phase starts
+            self.state = 0
             self.upStateStart.append(self.timelog[-1])
             rs,_ = Leica.getReturnSpeed()
 
-            print("retract speed: {}".format(rs))
-
-            # 210118 _zz_ use retract speed to keep phase offset
-            if self.parent.cbx_synOffset.isChecked():
-                delta = self.parent.Offsetlog.valuelog[-1] - self.parent.sbx_targetphase.value()
-              #  LEICAcycle = self.parent.LEICAcutdurationlog.valuelog[-1] + self.parent.LEICAretractdurationlog.valuelog[-1]
-                ATUMcycle = self.parent.ATUMcyledurationlog.valuelog[-1]
-                sp = int((-217)*(ATUMcycle) + 4756)
-                if abs(delta) <= 0.3:
-                    self.parent.setReturnSpeed(sp)
-                    print("in sync {}".format(sp))
-                elif abs(delta) <= 0.8:
-                    newRetractSpeed=int(max(450,min(1400,sp + delta*100)))
-                    self.parent.setReturnSpeed(newRetractSpeed)
-                    if delta > 0:
-                        print("speedup to {}".format(newRetractSpeed))
-                    else:
-                        print("slowdown to {}".format(newRetractSpeed))
-                else:
-                    # diff = round(delta/0.1,2)*2
-                    newRetractSpeed=int(max(450,min(1400,sp + delta*200)))
-                    self.parent.setReturnSpeed(newRetractSpeed)
-                    if delta > 0:
-                        print("speedup to {}".format(newRetractSpeed))
-                    else:
-                        print("slowdown to {}".format(newRetractSpeed))
-
+            self.parent.DisplayRetractSpeed.setHtml(str(rs))
 
             if self.downStateStart.__len__()>0 and self.upStateStart.__len__()>0:
                 retractDuration=self.upStateStart[-1]-self.downStateStart[-1]
                 self.parent.LEICAretractdurationlog.datacollector(retractDuration)
 
         if self.valuelog[-2]==1 and self.valuelog[-1]==0: #retraction phase starts
+            self.state = 1            
             self.downStateStart.append(self.timelog[-1])
+                    
+                
+            
             if self.upStateStart.__len__()>0 and self.downStateStart.__len__()>0:
                 cutDuration=self.downStateStart[-1]-self.upStateStart[-1]
                 self.parent.LEICAcutdurationlog.datacollector(cutDuration)
@@ -317,47 +452,44 @@ class LEICAchopperlog(log.valuelogger):
                 self.parent.TapeSpeedDifflog.datacollector(TapeSpeedDiff)
 
                 if self.parent.tapespeedlog.valuelog.__len__()>0:
-                    currentTapeSpeed=np.float(self.parent.tapespeedlog.valuelog[-1])
-                    if self.parent.cbx_synCutting.isChecked():
-                        durationRatio=CycleTime/TargetCycleTime
-                        newTapeSpeed=max(0.0,min(5.0,currentTapeSpeed+\
-                           self.parent.sbx_cycleFactor.value()*(durationRatio-1.0)*currentTapeSpeed))
-                        if not (currentTapeSpeed==newTapeSpeed):
-                            self.parent.setTapeSpeed(newTapeSpeed)
-
                     if self.upStateStart.__len__()>1 and self.parent.ATUMchopperlog.upStateStart.__len__()>0:
                         offset=self.upStateStart[-1]-self.parent.ATUMchopperlog.upStateStart[-1]
 
                         # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
                         if self.parent.cbx_synTS.isChecked():
                             cdelta = offset - self.parent.sbx_targetphase.value()
+                            OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
 
                             # offset Leica - ATUM
                             # offset < 0 -> Leica happened then ATUM
                             # more minus -> ATUM later than leica too much
 
-                            OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
-
                             # ATUMcycle = np.mean(self.parent.ATUMcyledurationlog.valuelog[-2:])
                             # cdelta = ATUMcycle - LEICAcycle
-                           # BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
-
-                            if abs(cdelta) < 0.4:
-                                self.parent.setTapeSpeed(self.parent.sbx_targetCycleSpeed.value())
-                                print("tape in sync")
-                            elif OffsetDiff < 0:
-                                # not getting better
-                                if cdelta < 0:
-                                    f = 0.02
-                                    print("tape speed up")
-                                else:
-                                    f = -0.02
-                                    print("tape slow down")
-                                self.parent.setTapeSpeed(currentTapeSpeed + f)
+                            if abs(cdelta) > 0.4:
+                               self.adjustment_counter += 1
+                               if OffsetDiff < 0:
+                                   # not getting better
+                                   af = 2
+                               else:
+                                   af = 1
+                               if self.parent.cbx_adjFactor.isChecked():
+                                   af = self.parent.sbx_adjFactor.value()
+                               if cdelta < 0:
+                                   self.parent.setTapeSpeed(BaseSpeed + 0.03*af)
+                                   print("tape speed up")
+                               else:
+                                   self.parent.setTapeSpeed(BaseSpeed - 0.03*af)
+                                   print("tape slow down")
                             else:
-                                print("adjusting")
+                                print("in sync")
                         print("offset:{}".format(round(offset, 2)))
                         self.parent.Offsetlog.datacollector(offset)
+        if self.adjustment_counter > 100:
+            self.parent.setTapeSpeed(BaseSpeed)
+            self.adjustment_counter = 0
+        elif self.adjustment_counter > 0:
+            self.adjustment_counter += 1
         del self.upStateStart[:-3]
         del self.downStateStart[:-3]
 
@@ -387,8 +519,9 @@ class ATUMchopperlog(log.valuelogger):
             if self.upStateStart.__len__()>1:
                 ATUMcycle=np.diff(self.upStateStart[-2:])
                 self.parent.ATUMcyledurationlog.datacollector(ATUMcycle[-1])
-                print("ATUM cycle: {}, actual tape speed: {}".format(round(ATUMcycle[-1],2), round(6/ATUMcycle[-1],3)))
-                print("tape tension: {}".format(round(Atum.gTT(),2)))
+                print("ATUM cycle: {}".format(round(ATUMcycle[-1],2)))
+                # print("actual tape speed: {}".format(round(6/ATUMcycle[-1],3)))
+                self.parent.DisplayTension.setHtml( str( round(Atum.gTT(),2) ) )
 
         if self.valuelog[-2]==1 and self.valuelog[-1]==0: #inter-slot phase starts
             self.downStateStart.append(self.timelog[-1])
@@ -472,12 +605,12 @@ class mainGUI(QtWidgets.QMainWindow):
             self.sbx_retractionSpeed.setValue(value)
             self.sbx_retractionSpeed.blockSignals(False)
         Leica.setReturnSpeed(value)
+        print("return speed: {}".format(value))
 
     def setupATUMsync(self):
         self.ptsyncLEICA_chopper = self.pg_sync.plot(pen=(0, 255, 200, 200))
         self.ptsyncATUM_chopper = self.pg_sync.plot(pen=(255, 0, 20, 200))
         self.ptOffset = self.pg_phasediff.plot(pen=(255, 0, 20, 200))
-
 
         self.retractspeedlog=retractspeedlog();
         self.retractspeedlog.initiateTimer(1000,self._logpath,'retractspeed',parent=self)
@@ -526,15 +659,17 @@ class mainGUI(QtWidgets.QMainWindow):
         self.syncLEICA_chopper=nidaqmx.Task()
         self.syncLEICA_chopper.di_channels.add_di_chan(self._syncLEICA_chopperPort)
 
+
     def StartCams(self):
 
         Atum.Start()
 
         print("start cameras")
-        newTapeSpeed=0.4
-        self.setTapeSpeed(newTapeSpeed)
 
-        self.setReturnSpeed()
+ #       v=self.sbx_tapeSpeed.value()        
+ #       self.setTapeSpeed(1)
+ #       self.sbx_tapeSpeed.setValue(v)
+        self.setTapeSpeed()
 
         self.retractspeedlog.start()
         self.ATUMchopperlog.start()
@@ -566,8 +701,43 @@ class mainGUI(QtWidgets.QMainWindow):
         self.TapeSpeedDifflog.stopLog()
         self.Offsetlog.stopLog()
         self.ATUMcyledurationlog.stopLog()
-
-
+    
+    def StartCut(self):
+        Leica.startCuttingMotor()
+        self.setReturnSpeed()
+        
+    def StopCut(self):
+        Leica.stopCuttingMotor()
+    
+    def getRetractSpeed(self):
+        value = Leica.getReturnSpeed()
+        self.DisplayRetractSpeed.setHtml(str(value[0]))
+        
+    def setRetractSpeed(self):
+        value=self.sbx_retractionSpeed.value()
+        Leica.setReturnSpeed(value)
+        
+    def getNS(self):
+        value = Leica.getNS_Abs()
+        self.DisplayNS.setHtml(str(value))
+        
+    def goNS(self):
+        value = self.sbx_setNS.value()
+        Leica.moveNS_Abs(value)
+        self.DisplayNS.setHtml(str(value))
+        
+    def getEW(self):
+        value = Leica.getEW_Abs()
+        self.DisplayEW.setHtml(str(round(value,3)))
+        
+    def goEW(self):
+        value = self.sbx_setEW.value()
+        Leica.moveEW_Abs(value)
+        self.DisplayEW.setHtml(str(value))
+        
+    def getTension(self):
+        self.DisplayTension.setHtml(str(round(Atum.gTT(),2)))
+        
     def StopHardware(self):
         self.PreCamTimer.stopLog()
         self.PostCamTimer.stopLog()
@@ -647,10 +817,19 @@ class mainGUI(QtWidgets.QMainWindow):
     def ConnectGUISlots(self):
         self.btn_StartCams.clicked.connect(self.StartCams)
         self.btn_StopCams.clicked.connect(self.StopCams)
-        self.sbx_retractionSpeed.valueChanged.connect(self.setReturnSpeed)
+        self.btn_StartCut.clicked.connect(self.StartCut)
+        self.btn_StopCut.clicked.connect(self.StopCut)
+        
         self.sbx_tapeSpeed.valueChanged.connect(self.setTapeSpeed)
         self.btn_TapeStart.clicked.connect(self.TapeStart)
         self.btn_TapeStop.clicked.connect(self.TapeStop)
+        self.btn_GetRetract.clicked.connect(self.getRetractSpeed)
+        self.btn_SetRetract.clicked.connect(self.setRetractSpeed)
+        self.btn_getEW.clicked.connect(self.getEW)
+        self.btn_goEW.clicked.connect(self.goEW)
+        self.btn_getNS.clicked.connect(self.getNS)
+        self.btn_goNS.clicked.connect(self.goNS)
+        self.btn_GetTension.clicked.connect(self.getTension)
 
     def TapeStart(self):
         if self.radiobtn_forward.isChecked():
@@ -664,7 +843,7 @@ class mainGUI(QtWidgets.QMainWindow):
     def UpdateWindowTitle(self):
         Title="AGTUM"
         self.setWindowTitle(Title)
-
+    
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -692,6 +871,6 @@ if __name__ == "__main__":
         sys.exit()
 
     print("Loading main GUI...")
-    window = mainGUI(os.path.join(application_path,"PyAGTUM_mainwindow_210302.ui"))
+    window = mainGUI(os.path.join(application_path,"PyAGTUM_mainwindow_210302_EWH.ui")) #EWH
 
     sys.exit(app.exec_())
