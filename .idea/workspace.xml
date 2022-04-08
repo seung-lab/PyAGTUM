@@ -2,10 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4a4fa109-6e47-43cf-84ab-90dacacce35e" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/DefaultConfig_win-3rdCam_-Water.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/DefaultConfig_win-3rdCam_-Water.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LeicaCamWater.py" beforeDir="false" afterPath="$PROJECT_DIR$/LeicaCamWater.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PyAGTUM_210223_-3rdCam_-Water.py" beforeDir="false" afterPath="$PROJECT_DIR$/PyAGTUM_210223_-3rdCam_-Water.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/leicacam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PyAGTUM_210223_-3rdCam_-Water.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PyAGTUM_210301_-3rdCam_-Water.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/barcode_reader.py" beforeDir="false" afterPath="$PROJECT_DIR$/barcode_reader.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -14,12 +15,29 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <leaf />
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/PyAGTUM_210312.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="4155">
+              <caret line="297" column="13" selection-start-line="297" selection-start-column="13" selection-end-line="297" selection-end-column="13" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/PyAGTUM_210726_SkipCut.py">
+          <provider selected="true" editor-type-id="text-editor" />
+        </entry>
+      </file>
+    </leaf>
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
       <find>syrin</find>
       <find>network</find>
+      <find>retract</find>
+      <find>retract_counter</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -29,14 +47,15 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/syringepump.py" />
+        <option value="$PROJECT_DIR$/PyAGTUM_210312.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="3885" />
-    <option name="y" value="10" />
-    <option name="width" value="3113" />
-    <option name="height" value="1296" />
+    <option name="x" value="4083" />
+    <option name="y" value="435" />
+    <option name="width" value="1938" />
+    <option name="height" value="1056" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -91,16 +110,23 @@
       <workItem from="1610825319721" duration="599000" />
       <workItem from="1613342644837" duration="415000" />
       <workItem from="1614484278246" duration="61000" />
+      <workItem from="1614842256060" duration="39000" />
+      <workItem from="1615090582243" duration="608000" />
+      <workItem from="1615325605436" duration="38000" />
+      <workItem from="1615325782080" duration="623000" />
+      <workItem from="1615691239550" duration="1259000" />
+      <workItem from="1642175483879" duration="42000" />
+      <workItem from="1645207573257" duration="2000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="15176000" />
+    <option name="totallyTimeSpent" value="17787000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="3885" y="10" width="3113" height="1296" extended-state="0" />
+    <frame x="4002" y="290" width="1292" height="704" extended-state="0" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.23943663" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.123176664" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -113,7 +139,7 @@
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
-      <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" visible="true" weight="0.37489253" />
+      <window_info active="true" anchor="bottom" id="Event Log" order="10" side_tool="true" visible="true" weight="0.11692844" />
       <window_info anchor="bottom" id="Terminal" order="11" />
       <window_info anchor="bottom" id="Python Console" order="12" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
@@ -178,6 +204,17 @@
           </folding>
         </state>
       </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210301_-3rdCam_-Water.py" />
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210312.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4155">
+          <caret line="297" column="13" selection-start-line="297" selection-start-column="13" selection-end-line="297" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/PyAGTUM_210726_SkipCut.py">
+      <provider selected="true" editor-type-id="text-editor" />
     </entry>
   </component>
 </project>

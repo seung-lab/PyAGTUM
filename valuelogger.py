@@ -9,7 +9,7 @@ def isnan(num):
 class valuelogger(QtCore.QThread):
     timelog=None
     valuelog=None
-    historylength=100
+    historylength=3000
     logfile=None
     filebasepath=None
     filebasename=None
@@ -29,10 +29,9 @@ class valuelogger(QtCore.QThread):
         self.parent=parent
         
     def run(self):#,timeout=1000):
-        datestr=datetime.today().strftime('%Y%m%d%H%M%S')
         if not (self.filebasename is None or self.filebasepath is None):
-            self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
-            self.fid=open(self.logfile,'w')
+             self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
+             self.fid=open(self.logfile,'w')
         self.Timer.timeout.connect(self.datacollector)
         self.Timer.start(self.timeout)
         loop = QtCore.QEventLoop()
@@ -44,25 +43,27 @@ class valuelogger(QtCore.QThread):
         self.timelog.append(valtime)
         self.valuelog.append(value)
         if not self.fid is None:
-            if not isnan(self.valuelog[-1]):
-                if self.fid.closed:
-                    datestr=datetime.today().strftime('%Y%m%d%H%M%S')
-                    if not (self.filebasename is None or self.filebasepath is None):
-                        self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
-                        self.fid=open(self.logfile,'w')
-                self.fid.write("{0},{1}\n".format(self.timelog[-1],self.valuelog[-1]))
+             if not isnan(self.valuelog[-1]):
+                 if self.fid.closed:
+                     datestr=datetime.today().strftime('%Y%m%d%H%M%S')
+                     if not (self.filebasename is None or self.filebasepath is None):
+                         self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
+                         self.fid=open(self.logfile,'w')
+                 self.fid.write("{0},{1}\n".format(self.timelog[-1],self.valuelog[-1]))
         if len(self.timelog)>self.historylength:
-            if not self.fid is None:
-                self.fid.close()
-                if not (self.filebasename is None or self.filebasepath is None):
-                    datestr=datetime.today().strftime('%Y%m%d%H%M%S')
-                    self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
-                    self.fid=open(self.logfile,'w')
-            self.timelog = self.timelog[-10:]
-            self.valuelog = self.valuelog[-10:]
-            # whenever it reaches historylength, save .csv, keep last 5, continue to log
-            #del self.timelog[:-self.historylength]
-            #del self.valuelog[:-self.historylength]
+              if not self.fid is None:
+                   self.fid.close()
+                   if not (self.filebasename is None or self.filebasepath is None):
+                       datestr=datetime.today().strftime('%Y%m%d%H%M%S')
+                       self.logfile=os.path.join(self.filebasepath,self.filebasename + '_' + datestr + '.csv')
+                       self.fid=open(self.logfile,'w')
+
+               # whenever it reaches historylength, save .csv, keep last 5, continue to log
+               del self.timelog[:-self.historylength]
+               del self.valuelog[:-self.historylength]
+#               del self.timelog[-10:]
+#               del self.valuelog[-10:]
+
         self.updateVis()
 
     def stopLog(self):
