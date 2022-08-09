@@ -6,6 +6,8 @@
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
 
+from AGTUMconfigparser import config
+
 import sys
 import os
 import paintableqlabel
@@ -13,15 +15,20 @@ import cv2
 import csv #EWH
 
 import numpy as np
+import time
 
 import syringepump as Pump
 import valuelogger as log
 
-import time #EWH
 
 # https://stackoverflow.com/questions/44404349/pyqt-showing-video-stream-from-opencv/44404713
 
 application_path = os.path.dirname(__file__)
+
+if sys.platform.startswith('win'):
+    win=1
+else:
+    win=0
 
 def moving_average(x, w,shape='same'):
     out=np.convolve(x, np.ones(w), shape) / w
@@ -36,24 +43,64 @@ class Thread(log.valuelogger):
         self.parent=parent
 
     def run(self):
-        cap = cv2.VideoCapture(0)
+        if self.parent.unit_test == False:
+            cap = cv2.VideoCapture(0)
+        else: 
+            video_name = "LeicaCamWater_Movie.mp4"
+            video_path = os.path.join(application_path, video_name)
+            cap = cv2.VideoCapture(video_path)
+            starttime = time.time()
+            
         while True:
             ret, frame = cap.read()
+            nowtime = time.time()
+            
+            if self.parent.unit_test == True:
+                if ret == False:
+                    cap = cv2.VideoCapture(video_path)             
+                    ret, frame = cap.read()
+                    nowtime = time.time()
+                
+                    print("New Video Loop Started.")
+            
+                while (float(nowtime - starttime)) < float(self.parent.unit_test_LeicaCam_SPEED):
+                    
+                    ROIXbegin=min([self.plabel.begin.x(),self.plabel.end.x()])
+                    ROIXend=max([self.plabel.begin.x(),self.plabel.end.x()])
+                    ROIYbegin=min([self.plabel.begin.y(),self.plabel.end.y()])
+                    ROIYend=max([self.plabel.begin.y(),self.plabel.end.y()])
+                    self.parent.waterlevellog.waterlevel=np.mean(frame[ROIYbegin:ROIYend,ROIXbegin:ROIXend])
+    
+                    p = QtGui.QImage(frame, frame.shape[1], frame.shape[0], QtGui.QImage.Format_RGB888)
+                    self.plabel.setPixmap(QtGui.QPixmap.fromImage(p))
+                    # self.changePixmap.emit(p)
+                    nowtime = time.time()
+                    
+                if (float(nowtime - starttime)) > float(self.parent.unit_test_LeicaCam_SPEED):
+                    starttime = time.time()
+            else:
+                ROIXbegin=min([self.plabel.begin.x(),self.plabel.end.x()])
+                ROIXend=max([self.plabel.begin.x(),self.plabel.end.x()])
+                ROIYbegin=min([self.plabel.begin.y(),self.plabel.end.y()])
+                ROIYend=max([self.plabel.begin.y(),self.plabel.end.y()])
+                self.parent.waterlevellog.waterlevel=np.mean(frame[ROIYbegin:ROIYend,ROIXbegin:ROIXend])
 
-            ROIXbegin=min([self.plabel.begin.x(),self.plabel.end.x()])
-            ROIXend=max([self.plabel.begin.x(),self.plabel.end.x()])
-            ROIYbegin=min([self.plabel.begin.y(),self.plabel.end.y()])
-            ROIYend=max([self.plabel.begin.y(),self.plabel.end.y()])
-            self.parent.waterlevellog.waterlevel=np.mean(frame[ROIYbegin:ROIYend,ROIXbegin:ROIXend])
+                p = QtGui.QImage(frame, frame.shape[1], frame.shape[0], QtGui.QImage.Format_RGB888)
+                self.plabel.setPixmap(QtGui.QPixmap.fromImage(p))
+                # self.changePixmap.emit(p)
+                
+        
 
-            p = QtGui.QImage(frame, frame.shape[1], frame.shape[0], QtGui.QImage.Format_RGB888)
-            self.plabel.setPixmap(QtGui.QPixmap.fromImage(p))
-            # self.changePixmap.emit(p)
+
+
 
 class waterlevellog(log.valuelogger):
     waterlevel=None
     waterwindow=20
     historylength=3000
+    num_iters = 0
+    first_hit= True
+    slope = -1
 
     def updateVis(self):
         self.parent.ptwaterlevel.setData(self.timelog,moving_average(self.valuelog,self.waterwindow,'same'))
@@ -62,7 +109,32 @@ class waterlevellog(log.valuelogger):
         
         #print(moving_average(self.valuelog,self.waterwindow,'same'))
         
-        self.parent.DisplayCurrentLevel.setHtml(str(round(np.average(self.valuelog[(-1*self.waterwindow):-1]))))
+        if np.isnan(np.average(self.valuelog[(-1*self.waterwindow):-1])):
+            pass
+        else:
+            self.parent.DisplayCurrentLevel.setHtml(str(round(np.average(self.valuelog[(-1*self.waterwindow):-1]))))
+
+            data = list(self.valuelog[(-1*self.waterwindow):-1])
+            index = list(range(len(data)))
+            
+            if len(index) < 3:
+                pass
+            else:
+                coeffs = np.polyfit(index, data, 1) #PROBLEM
+                self.slope = coeffs[-2]
+                #print(self.slope)
+                
+                if self.slope >= 0:
+                    if self.first_hit == True:
+                        self.num_iters += 1
+                        self.parent.DisplayCurrentCount.setHtml(str(self.num_iters))
+                        self.first_hit = False
+                    else:
+                        pass
+                if self.slope < 0:
+                    self.first_hit = True
+                else:
+                    pass
 
     def datacollector(self):
         self.updateLog(self.waterlevel)
@@ -76,7 +148,11 @@ class waterlevellog(log.valuelogger):
 #                writer.writerow(str(round(self.waterlevel,4))) #EWH 
             
             if np.average(self.valuelog[(-1*self.waterwindow):-1])<self.parent.sldr_WaterThres.value()-self.parent.sbx_WaterThresRange.value():
-                Pump.trigger_pump()
+                if self.parent.unit_test == False:
+                    Pump.trigger_pump()
+                else:
+                    pass
+                        
                 row = [1] #EWH
                 with open('C:\dev\logs\waterpumps.csv', 'a', newline='') as f: #EWH
                     writer = csv.writer(f) #EWH
@@ -99,6 +175,9 @@ class mainGUI(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self)
         uic.loadUi(uifile, self)
         self.setWindowState(QtCore.Qt.WindowMaximized)
+        
+        self.unit_test = bool(myconfig["pyAGTUM"]["_unit_test"])
+        self.unit_test_LeicaCam_SPEED = myconfig["pyAGTUM"]["_unit_test_LeicaCamWater_SPEED"]
 
         print("Setup water level log...")
         self.SetupWaterLog()
@@ -116,7 +195,7 @@ class mainGUI(QtWidgets.QMainWindow):
                 self.setWindowState(QtCore.Qt.WindowNoState)
                 self.setGeometry(self._StartPosition[0],self._StartPosition[1],self._StartPosition[2],self._StartPosition[3])
 
-        self.setWindowTitle("LeicaCam")
+        self.UpdateWindowTitle()
 
 #        cbx_pumpOn = False
 #        _StartPosition = 222, 332, 2564, 1273
@@ -125,6 +204,7 @@ class mainGUI(QtWidgets.QMainWindow):
         print("Show GUI...")
 
 #        th.changePixmap.connect(self.setImage)
+        
         self.CamTh.start()
         self.show()
         
@@ -139,17 +219,17 @@ class mainGUI(QtWidgets.QMainWindow):
     def WaterThresholdChanged(self):
         newValue=self.sldr_WaterThres.value()
         self.ptwaterthres.setValue(newValue)
-        print("Threshold updated: {0}".format(newValue))
+        #print("Threshold updated: {0}".format(newValue))
         
     def WaterUpperLimChanged(self):
         newValue = self.sbx_WaterLevelUpperLim.value()
         self.ptwaterupperlim.setValue(newValue)
-        print("Upper Limit updated: {0}".format(newValue))
+        #print("Upper Limit updated: {0}".format(newValue))
         
     def WaterLowerLimChanged(self):
         newValue = self.sbx_WaterLevelLowerLim.value()
         self.ptwaterlowerlim.setValue(newValue)
-        print("Upper Limit updated: {0}".format(newValue))
+        #print("Upper Limit updated: {0}".format(newValue))
 
     def ConnectGUISlots(self):
         self.btn_StartCams.clicked.connect(self.StartCams)
@@ -178,11 +258,44 @@ class mainGUI(QtWidgets.QMainWindow):
     def StopCams(self):
         print("stop log")
         self.waterlevellog.stopLog()
+        
+    def UpdateWindowTitle(self):
+        if self.unit_test == False:
+            Title="Leica Cam"
+            self.setWindowTitle(Title)
+        else:
+            Title="Leica Cam - VIRTUAL MODE"
+            self.setWindowTitle(Title)
 
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     print("Loading main GUI...")
+
+    #Loading default configuration
+    if win:
+        config_name = 'DefaultConfig_win-3rdCam_-Water.cfg'
+    else:
+        config_name = 'DefaultConfig.cfg'
+
+    configfile = os.path.join(application_path, config_name)
+    
+    if not os.path.isfile(configfile):
+        QtWidgets.QMessageBox.warning(None,"Error",
+            "Configuration file missing:\n {0}".format(configfile),
+            QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.NoButton)
+        sys.exit()
+
+    try:
+        print("Loading configuration...")
+        myconfig = config(configfile)
+                
+    except:
+        QtWidgets.QMessageBox.warning(None, "Error",
+            "Configuration file corrupted:\n {0}".format(configfile),
+            QtWidgets.QMessageBox.Cancel, QtWidgets.QMessageBox.NoButton)
+        sys.exit()
+        
     window = mainGUI(os.path.join(application_path,"LeicaCam_Window_210215_EWH.ui"))
 
     sys.exit(app.exec_())

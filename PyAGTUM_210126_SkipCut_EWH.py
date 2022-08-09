@@ -6,7 +6,6 @@
 # remove retract phase diff logs
 # 210312 spring change on 210310
 
-
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
 from PIL import ImageQt
@@ -33,6 +32,10 @@ import valuelogger as log
 #from threading import timer #EWH
 
 application_path = os.path.dirname(__file__)
+
+#EWH: gloabl variable for counting in the virtual mode
+virtual_counter_Leica = int(0)
+virtual_counter_ATUM = int(0)
 
 # videologpath = 'C:\dev\videologs'
 # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -121,7 +124,7 @@ class TapeSpeedDifflog(log.valuelogger):
         #print("update log 7")
 
 
-class Offsetlog(log.valuelogger):
+class Offsetlog(log.valuelogger): #EWH - this one might be problematic for virtual
     historylength=5000
     def updateVis(self):
         try: 
@@ -162,6 +165,11 @@ class LEICAchopperlog(log.valuelogger):
     second_time_wait_time = 0 #EWH
     Eric_cutDuration = 0 #EWH
     
+    #EWH: virtual mode variables
+    chopperSignal = 0
+    switch_ = False
+    num_switches = 0
+    
 
     def updateVis(self):
         try:
@@ -170,8 +178,39 @@ class LEICAchopperlog(log.valuelogger):
             print("Error: failed to update Leica chopper log graph - line 448")
             
     def datacollector(self):
-        chopperSignal=int(self.parent.syncLEICA_chopper.read())
-        self.updateLog(chopperSignal)
+        
+        #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!
+        global virtual_counter_Leica
+        
+        if self.parent.unit_test == False:
+            self.chopperSignal=int(self.parent.syncLEICA_chopper.read())
+        else:
+            if virtual_counter_Leica < 1: #this is the "time" of retraction, hardwired
+                self.chopperSignal = 0
+                
+            else:
+                zero_signal = virtual_counter_Leica / self.parent._unit_test_pyAGTUM_SPEED
+                if zero_signal.is_integer():
+                    self.switch_ = True
+                    self.num_switches += 1
+                if self.switch_ == True: 
+                    
+                    current_num_switches = self.num_switches / 2
+                    
+                    if current_num_switches.is_integer():
+                        self.parent.Display_cycle_num_LEICA.setHtml(str(current_num_switches))
+                    
+                    if self.chopperSignal == 0:
+                        self.chopperSignal = 1
+                        self.switch_ = False
+                    else:
+                        self.chopperSignal = 0
+                        self.switch_ = False
+                        
+
+        virtual_counter_Leica += 1
+                    
+        self.updateLog(self.chopperSignal)
         #print("update log 9")
         BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
         
@@ -329,7 +368,7 @@ class LEICAchopperlog(log.valuelogger):
                     self.parent.cbx_skip.setChecked(True)
             
             if self.parent.cbx_reskip.isChecked():
-                if chopperSignal == 0: 
+                if self.chopperSignal == 0: 
                     self.skip_checked_num_future += 1
                     #EWH: Setting "the wait to nose" time (hardcoded for current luxel tape sizes)  
                     if self.skip_checked_num_future == 1:
@@ -347,7 +386,10 @@ class LEICAchopperlog(log.valuelogger):
         if self.valuelog[-1]==1 and self.valuelog[-2]==0: #cutting phase starts
             self.state = 0
             self.upStateStart.append(self.timelog[-1])
-            rs,_ = Leica.getReturnSpeed()
+            if self.parent.unit_test == False:
+                rs,_ = Leica.getReturnSpeed()
+            else:
+                rs = 1200 #EWH: virtual test, hardwired
 
             self.parent.DisplayRetractSpeed.setHtml(str(rs))
 
@@ -423,27 +465,66 @@ class LEICAchopperlog(log.valuelogger):
         del self.downStateStart[:-3]
 
 class ATUMchopperlog(log.valuelogger):
+    
     historylength=3000
     upStateStart=[]
     downStateStart=[]
+    
+    #EWH: virtual mode variables
+    chopperSignal = 0
+    switch_ = False
+    num_switches = 0
+    
     def updateVis(self):
         try: 
             self.parent.ptsyncATUM_chopper.setData(self.timelog,self.valuelog)
         except: 
             print("Error: failed to update ATUMchopper log graph - line 765")
     def datacollector(self):
-        try: 
-            chopperSignal=int(self.parent.syncATUM_chopper.read())
-        #invert chopper signal
-            if chopperSignal==1:
-                chopperSignal=0
-            elif chopperSignal==0:
-                chopperSignal=1
-        except nidaqmx.DaqError as e:
-            print(f"Nidaq error detected: {e}")
+                #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!
+                
+                #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!
+        global virtual_counter_ATUM
+            
+        if self.parent.unit_test == False:
+            try: 
+                self.chopperSignal=int(self.parent.syncATUM_chopper.read())
+            #invert chopper signal
+                if self.chopperSignal==1:
+                    self.chopperSignal=0
+                elif self.chopperSignal==0:
+                    self.chopperSignal=1
+            except nidaqmx.DaqError as e:
+                print(f"Nidaq error detected: {e}")
+        else:
+            if virtual_counter_ATUM < 1: #this is the "time" of no slot, hardwired
+                self.chopperSignal = 0
+                
+            else:
+                zero_signal = virtual_counter_ATUM / self.parent._unit_test_pyAGTUM_SPEED
+                if zero_signal.is_integer():
+                    self.switch_ = True
+                    self.num_switches += 1
+                    
+                if self.switch_ == True: 
+                    
+                    current_num_switches = self.num_switches / 2
+                    
+                    if current_num_switches.is_integer():
+                        self.parent.Display_cycle_num_ATUM.setHtml(str(current_num_switches))    
+                        
+                    if self.chopperSignal == 0:
+                        self.chopperSignal = 1
+                        self.switch_ = False
+                    else:
+                        self.chopperSignal = 0
+                        self.switch_ = False 
+                    
+        virtual_counter_ATUM += 1
+       #print(f"Chopper Signal for ATUM: {self.chopperSignal}")
             
 
-        self.updateLog(chopperSignal)
+        self.updateLog(self.chopperSignal)
         #print("update log 10")
         if self.valuelog.__len__()<2:
             return
@@ -457,8 +538,12 @@ class ATUMchopperlog(log.valuelogger):
                 self.parent.ATUMcyledurationlog.datacollector(ATUMcycle[-1])
                 print("ATUM cycle: {}".format(round(ATUMcycle[-1],2)))
                 # print("actual tape speed: {}".format(round(6/ATUMcycle[-1],3)))
-                self.parent.DisplayTension.setHtml( str( round(Atum.gTT(),2) ) )
-
+                
+                if self.parent.unit_test == False:
+                    self.parent.DisplayTension.setHtml( str( round(Atum.gTT(),2) ) )
+                else:
+                    self.parent.DisplayTension.setHtml(str(round(60.353,2)))
+                    
         if self.valuelog[-2]==1 and self.valuelog[-1]==0: #inter-slot phase starts
             self.downStateStart.append(self.timelog[-1])
             if self.upStateStart.__len__()>0:
@@ -472,7 +557,10 @@ class tapespeedlog(log.valuelogger):
     historylength=500
     def datacollector(self,value=None):
         if (value is None):
-            value=Atum.gTS()
+            if self.parent.unit_test == False:
+                value=Atum.gTS()
+            else:
+                value=0.4 #EWH: virtual mode, hardwired
         self.updateLog(value)
         #print("update log 11")
         #print("Tension: {0}".format(Atum.gTT()))
@@ -480,7 +568,10 @@ class tapespeedlog(log.valuelogger):
 class retractspeedlog(log.valuelogger):
     historylength=500
     def datacollector(self):
-        [RetractionSpeed,resstr]=Leica.getReturnSpeed()
+        if self.parent.unit_test == False:
+            [RetractionSpeed,resstr]=Leica.getReturnSpeed()
+        else: 
+            RetractionSpeed = 1200
         if RetractionSpeed>=0:
             self.updateLog(RetractionSpeed)
             #print("update log 12")
@@ -505,14 +596,23 @@ class mainGUI(QtWidgets.QMainWindow):
         self.setWindowState(QtCore.Qt.WindowMaximized)
         print("Loading GUI config...")
         myconfig.LoadConfig(self,"pyAGTUM")
-
+        
+        self.unit_test = bool(myconfig["pyAGTUM"]["_unit_test"])
+        print(self.unit_test)
+        self._unit_test_pyAGTUM_SPEED = int(myconfig["pyAGTUM"]["_unit_test_pyAGTUM_SPEED"])
+        
         print("Setup ATUM sync...")
         self.setupATUMsync()
+
+   
+        if self.unit_test == False:
+            print("Setup hardware...")
+            self.SetupHardware()
+        else: 
+            print("Virtual Mode enabled...")
+
         print("Connect GUI slots...")
         self.ConnectGUISlots()
-
-        print("Setup hardware...")
-        self.SetupHardware()
 
         if hasattr(self,'_StartPosition'):
             if self._StartPosition.__len__()>3:
@@ -533,7 +633,8 @@ class mainGUI(QtWidgets.QMainWindow):
             self.sbx_tapeSpeed.blockSignals(True)
             self.sbx_tapeSpeed.setValue(value)
             self.sbx_tapeSpeed.blockSignals(False)
-        Atum.sTS(value)
+        if self.unit_test == False: 
+            Atum.sTS(value)
 
     def setReturnSpeed(self,value=None):
         if value is None:
@@ -542,8 +643,11 @@ class mainGUI(QtWidgets.QMainWindow):
             self.sbx_retractionSpeed.blockSignals(True)
             self.sbx_retractionSpeed.setValue(value)
             self.sbx_retractionSpeed.blockSignals(False)
-        Leica.setReturnSpeed(value)
-        print("return speed: {}".format(value))
+        if self.unit_test == False:
+            Leica.setReturnSpeed(value)
+            print("return speed: {}".format(value))
+        else: 
+            print("unit test mode")
 
     def setupATUMsync(self):
         self.ptsyncLEICA_chopper = self.pg_sync.plot(pen=(0, 255, 200, 200))
@@ -605,7 +709,8 @@ class mainGUI(QtWidgets.QMainWindow):
 
     def StartCams(self):
 
-        Atum.Start()
+        if self.unit_test == False:
+            Atum.Start()
 
         print("start cameras")
 
@@ -630,7 +735,8 @@ class mainGUI(QtWidgets.QMainWindow):
 
     def StopCams(self):
         print("stopped cameras")
-        Atum.Stop()
+        if self.unit_test == False: 
+            Atum.Stop()
         self.retractspeedlog.stopLog()
         self.ATUMchopperlog.stopLog()
         self.LEICAchopperlog.stopLog()
@@ -646,41 +752,58 @@ class mainGUI(QtWidgets.QMainWindow):
         self.ATUMcyledurationlog.stopLog()
     
     def StartCut(self):
-        Leica.startCuttingMotor()
+        if self.unit_test == False:
+            Leica.startCuttingMotor()
         self.setReturnSpeed()
         
     def StopCut(self):
-        Leica.stopCuttingMotor()
+        if self.unit_test == False:
+            Leica.stopCuttingMotor()
     
     def getRetractSpeed(self):
-        value = Leica.getReturnSpeed()
+        if self.unit_test == False:
+            value = Leica.getReturnSpeed()
+        else:
+            value = 1200 #hardwired
         self.DisplayRetractSpeed.setHtml(str(value[0]))
         
     def setRetractSpeed(self):
         value=self.sbx_retractionSpeed.value()
-        Leica.setReturnSpeed(value)
+        if self.unit_test == False:
+            Leica.setReturnSpeed(value)
         
     def getNS(self):
-        value = Leica.getNS_Abs()
+        if self.unit_test == False:
+            value = Leica.getNS_Abs()
+        else:
+            value = 3.185 #hardwired
         self.DisplayNS.setHtml(str(value))
         
     def goNS(self):
         value = self.sbx_setNS.value()
-        Leica.moveNS_Abs(value)
+        if self.unit_test == False:
+            Leica.moveNS_Abs(value)
         self.DisplayNS.setHtml(str(value))
         
     def getEW(self):
-        value = Leica.getEW_Abs()
+        if self.unit_test == False:
+            value = Leica.getEW_Abs()
+        else: 
+            value = 4.75 #hardwired
         self.DisplayEW.setHtml(str(round(value,3)))
         
     def goEW(self):
         value = self.sbx_setEW.value()
-        Leica.moveEW_Abs(value)
+        if self.unit_test == False:
+            Leica.moveEW_Abs(value)
         self.DisplayEW.setHtml(str(value))
         
     def getTension(self):
-        self.DisplayTension.setHtml(str(round(Atum.gTT(),2)))
-        
+        if self.unit_test == False:
+            self.DisplayTension.setHtml(str(round(Atum.gTT(),2)))
+        else:
+            self.DisplayTension.setHtml(str(round(60.3456,2))) #hardwired
+            
     def StopHardware(self):
 #        EWH: removing cameras
 #        self.PreCamTimer.stopLog()
@@ -699,8 +822,11 @@ class mainGUI(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
 #         EWH: removing cameras 
-#        self.StopHardware()
-
+        if self.unit_test == False:
+            self.StopHardware()
+        else:
+            print("Virtual mode: no hardware to close.")
+            
         tempGeometry=self.geometry()
         self._StartPosition=\
             [tempGeometry.x(),tempGeometry.y(),tempGeometry.width(),tempGeometry.height()]
@@ -764,7 +890,6 @@ class mainGUI(QtWidgets.QMainWindow):
         self.btn_StopCams.clicked.connect(self.StopCams)
         self.btn_StartCut.clicked.connect(self.StartCut)
         self.btn_StopCut.clicked.connect(self.StopCut)
-        
         self.sbx_tapeSpeed.valueChanged.connect(self.setTapeSpeed)
         self.btn_TapeStart.clicked.connect(self.TapeStart)
         self.btn_TapeStop.clicked.connect(self.TapeStop)
@@ -777,17 +902,23 @@ class mainGUI(QtWidgets.QMainWindow):
         self.btn_GetTension.clicked.connect(self.getTension)
 
     def TapeStart(self):
-        if self.radiobtn_forward.isChecked():
-            Atum.Start()
-        else:
-            Atum.Reverse()
+        if self.unit_test == False:
+            if self.radiobtn_forward.isChecked():
+                Atum.Start()
+            else:
+                Atum.Reverse()
 
     def TapeStop(self):
-        Atum.Stop()
+        if self.unit_test == False:
+            Atum.Stop()
 
     def UpdateWindowTitle(self):
-        Title="AGTUM"
-        self.setWindowTitle(Title)
+        if self.unit_test == False:
+            Title="AGTUM"
+            self.setWindowTitle(Title)
+        else:
+            Title="AGTUM - VIRTUAL MODE"
+            self.setWindowTitle(Title)
     
 
 if __name__ == "__main__":
@@ -809,6 +940,7 @@ if __name__ == "__main__":
     try:
         print("Loading configuration...")
         myconfig = config(configfile)
+        
     except:
         QtWidgets.QMessageBox.warning(None, "Error",
             "Configuration file corrupted:\n {0}".format(configfile),
