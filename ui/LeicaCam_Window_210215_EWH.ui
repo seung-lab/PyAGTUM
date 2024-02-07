@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1089</width>
+    <height>1708</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="paintableqlabel" name="cam_knife">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>1024</width>
+      <height>768</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: rgb(255,255,255)</string>
+    </property>
+    <property name="text">
+     <string>knife cam</string>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="groupBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>1010</y>
+      <width>311</width>
+      <height>171</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>Control</string>
+    </property>
+    <widget class="QPushButton" name="btn_StartCams">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>131</width>
+       <height>111</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>11</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">
+background-color: rgb(111, 255, 101);</string>
+     </property>
+     <property name="text">
+      <string>START</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btn_StopCams">
+     <property name="geometry">
+      <rect>
+       <x>150</x>
+       <y>40</y>
+       <width>141</width>
+       <height>111</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>11</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgb(255, 125, 125);</string>
+     </property>
+     <property name="text">
+      <string>STOP</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="PlotWidget" name="pg_waterlevel" native="true">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>1190</y>
+      <width>1031</width>
+      <height>421</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QSpinBox" name="sbx_WaterThresRange">
+    <property name="geometry">
+     <rect>
+      <x>250</x>
+      <y>980</y>
+      <width>61</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="keyboardTracking">
+     <bool>false</bool>
+    </property>
+    <property name="value">
+     <number>0</number>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>970</y>
+      <width>61</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Range:</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="cbx_pumpOn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>820</y>
+      <width>111</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Pump ON</string>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>820</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Water Level Upper Limit</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>860</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Water Level Lower Limit</string>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>780</x>
+      <y>820</y>
+      <width>281</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>Virtual Mode </string>
+    </property>
+    <widget class="QTextEdit" name="DisplayCurrentCount">
+     <property name="geometry">
+      <rect>
+       <x>100</x>
+       <y>40</y>
+       <width>171</width>
+       <height>31</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_5">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>50</y>
+       <width>71</width>
+       <height>19</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Iterations</string>
+     </property>
+    </widget>
+    <widget class="QTextEdit" name="DisplayCurrentLevel">
+     <property name="geometry">
+      <rect>
+       <x>190</x>
+       <y>100</y>
+       <width>81</width>
+       <height>31</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_4">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>100</y>
+       <width>151</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Current Water Level</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>900</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Water Level Upper Thres</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_7">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>940</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Water Level Lower Thres</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pb_WarningLight">
+    <property name="geometry">
+     <rect>
+      <x>640</x>
+      <y>820</y>
+      <width>131</width>
+      <height>361</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_8">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>970</y>
+      <width>91</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Leica Cycle:</string>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="dsbx_LeicaCycle">
+    <property name="geometry">
+     <rect>
+      <x>110</x>
+      <y>980</y>
+      <width>71</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>1</number>
+    </property>
+    <property name="singleStep">
+     <double>0.500000000000000</double>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayCurrentMax">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>1030</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_9">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>1030</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Current Max:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_10">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>980</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Water Level</string>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="sbx_WaterLevelUpperLim">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>820</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="maximum">
+     <double>1000.000000000000000</double>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="sbx_WaterLevelLowerLim">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>860</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="maximum">
+     <double>1000.000000000000000</double>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="sbx_WaterLevelUpperThres">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>900</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="maximum">
+     <double>1000.000000000000000</double>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="sbx_WaterLevelLowerThres">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>940</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="maximum">
+     <double>1000.000000000000000</double>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="sbx_WaterLevelCenter">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>980</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="maximum">
+     <double>1000.000000000000000</double>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="cbx_ScreenLock">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>860</y>
+      <width>111</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Screen Lock</string>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pb_PumpLight">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>820</y>
+      <width>151</width>
+      <height>131</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Pump</string>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayCurrentWarningTime">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>1070</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_11">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>1070</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Warning Time:</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="cbx_UseLastBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>900</y>
+      <width>161</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Use Prev. Box</string>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayBoxLoc_1">
+    <property name="geometry">
+     <rect>
+      <x>830</x>
+      <y>1020</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayBoxLoc_2">
+    <property name="geometry">
+     <rect>
+      <x>960</x>
+      <y>1020</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayBoxLoc_3">
+    <property name="geometry">
+     <rect>
+      <x>830</x>
+      <y>1080</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="DisplayBoxLoc_4">
+    <property name="geometry">
+     <rect>
+      <x>960</x>
+      <y>1080</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_12">
+    <property name="geometry">
+     <rect>
+      <x>790</x>
+      <y>980</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Box Locations</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pb_StopCam">
+    <property name="geometry">
+     <rect>
+      <x>350</x>
+      <y>1110</y>
+      <width>131</width>
+      <height>71</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(255, 125, 125);</string>
+    </property>
+    <property name="text">
+     <string>Stop Cam</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pb_StartCam">
+    <property name="geometry">
+     <rect>
+      <x>490</x>
+      <y>1110</y>
+      <width>131</width>
+      <height>71</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">
+background-color: rgb(111, 255, 101);</string>
+    </property>
+    <property name="text">
+     <string>Start Cam</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1089</width>
+     <height>31</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>paintableqlabel</class>
+   <extends>QLabel</extends>
+   <header>paintableqlabel.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
