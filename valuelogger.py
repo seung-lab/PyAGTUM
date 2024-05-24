@@ -1,3 +1,9 @@
+"""
+
+EWH - used to start a thread for a specific valuelogger. 
+
+"""
+
 from datetime import datetime
 import os
 import time

@@ -1,68 +1,65 @@
 # -*- coding: utf-8 -*-
 
-# based on PyAGTUM_210116
-# remove un-used functions, remove cbx_synRetractSpeed
-# 210223 remove 3rd camera, remove pump
-# remove retract phase diff logs
-# 210312 spring change on 210310
+"""
+
+PyAGTUM - Main program for controlling ATUM and Leica for Serial Section Acquisition
+
+This program is designed to control a Leica UC7 microtome and RMC ATUM. It stores various 
+important data like the position of the Leica cutting arm (whether it is in the cutting 
+window or not) and the duration of an ATUM cycle in classes of labeles as various logs. 
+Most of these logs just add a 1 or a 0 to denote position but two of the logs contain the 
+functions that perform sychronization, aperture skipping, protecting from tension issues, 
+and more. 
+
+The two key classes are: 
+
+1. LEICAchopperlog
+2. ATUMchopperlog
+
+After that the class "mainGUI" connects the UI file to this script and relays the button 
+and switch actions by the user to run the AGTUM. This class also contains most of the 
+functions for getting or sending information to the hardware with button presses or value
+changes in the GUI. 
+
+"""
+
+# Package Imports
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
 from PIL import ImageQt
-
 import sys
 import os
 from AGTUMconfigparser import config
-#from ximea import xiapi
 from datetime import datetime
 import time
 import nidaqmx
 import serial
-# import paintableqlabel
 import cv2
-#import copy
-
 import numpy as np
 from scipy import stats, signal, fftpack
 import leicaCmds as Leica
 import atumCmds_2 as Atum
-# import syringepump as Pump
 import valuelogger as log
-#import barcode_reader as barcode
-#from threading import timer #EWH
+
 
 application_path = os.path.dirname(__file__)
 
 #EWH: gloabl variable for counting in the virtual mode
+#EWH: this is not important for most users. I would not
+# recommend messing with this. 
+
 virtual_counter_Leica = int(0)
 virtual_counter_ATUM = int(0)
-
-# videologpath = 'C:\dev\videologs'
-# fourcc = cv2.VideoWriter_fourcc(*'XVID')
-# datestr=datetime.today().strftime('%Y%m%d%H%M%S')
-# out = cv2.VideoWriter(os.path.join(videologpath,self.name + '_' + datestr + '.avi'),fourcc, 20.0, (616,514))
 
 if sys.platform.startswith('win'):
     win=1
 else:
     win=0
-    
-def draw_str(dst, target, s):
-    # copy from cv_samples.common
-    x, y = target
-    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 0), thickness = 2, lineType=cv2.LINE_AA)
-    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 255), lineType=cv2.LINE_AA)
 
-lk_params = dict( winSize  = (10, 10),
-                  maxLevel = 2,
-                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-feature_params = dict( maxCorners = 25,
-                       qualityLevel = 0.6,
-                       minDistance = 20,
-                       blockSize = 20 )
-
+# # # # # # # # # Logging Classes # # # # # # # # # # 
         
+#EWH: important for maintain sychronization
 class ATUMcyledurationlog(log.valuelogger):
     historylength=5000
     def updateVis(self):
@@ -113,6 +110,7 @@ class LEICAcutdurationlog(log.valuelogger):
         self.updateLog(value)
         #print("update log 6")
 
+# EWH: currently not in use. 
 class TapeSpeedDifflog(log.valuelogger):
     historylength=5000
   #  def updateVis(self): self.parent.ptTapeSpeedDiff.setData(self.timelog,self.valuelog)
@@ -123,7 +121,7 @@ class TapeSpeedDifflog(log.valuelogger):
         self.updateLog(value)
         #print("update log 7")
 
-
+#EWH: offset data is displayed on the lower graph in the PyAGTUM main window. 
 class Offsetlog(log.valuelogger): #EWH - this one might be problematic for virtual
     historylength=5000
     def updateVis(self):
@@ -138,23 +136,22 @@ class Offsetlog(log.valuelogger): #EWH - this one might be problematic for virtu
         #print("update log 8")
 
 
-############################## UNDER CONSTRUCTION ##############################
-
 class LEICAchopperlog(log.valuelogger):
     historylength=3000
     upStateStart=[]
     downStateStart=[]
     prev_offset=0
-    state=0 # 0 - cutting, 1 - retract
+    #EWH: in log; 0 = cutting, 1 = retract 
+    state=0 
 
+    #EWH: these are used to keep track of various conditions. 
     adjustment_counter = 0
-    wait_cycle_num = 0 #EWH
+    wait_cycle_num = 0 
     skip_checked= [0, 0, 0]
     StopCutTime = 0
-    skip_checked_num = 0 #EWH
+    skip_checked_num = 0 
     first_time_stop_cut = 0
     NumSet_target = 0
-    
     skip_checked_num_future = 0
     wait_cycle_num_future = 0
     stop_mode = 0
@@ -170,12 +167,12 @@ class LEICAchopperlog(log.valuelogger):
     switch_ = False
     num_switches = 0
     
-
+    #EWH: update the value for the graph of synchronization 
     def updateVis(self):
         try:
             self.parent.ptsyncLEICA_chopper.setData(self.timelog,self.valuelog)
         except: 
-            print("Error: failed to update Leica chopper log graph - line 448")
+            print("Error: failed to update Leica chopper log graph - line 173")
             
     def datacollector(self):
         
@@ -185,10 +182,15 @@ class LEICAchopperlog(log.valuelogger):
         #EWH: checking tension and making sure nothing crazy has happened with the tape. If so, stop moving and cutting.
         tension = self.parent.getTension()
         
+        #EWH: checking tension and stopping the cutting and tape movement if too high to prevent ATUM damage. 
+        #EWH: see development for latest version of tension control, it all has checks in place to prevent
+        #EWH: stopping during the cutting process. 
         if tension > self.parent.sbx_tapeTensionControl.value():
             self.parent.StopCams()
             self.parent.StopCut()
             print("ERROR: Tension Too High! Check Tape!")
+
+        # # # Virtual Mode - Ignore # # #
         
         if self.parent.unit_test == False:
             self.chopperSignal=int(self.parent.syncLEICA_chopper.read())
@@ -219,10 +221,11 @@ class LEICAchopperlog(log.valuelogger):
         virtual_counter_Leica += 1
                     
         self.updateLog(self.chopperSignal)
-        #print("update log 9")
+        
         BaseSpeed = self.parent.sbx_targetCycleSpeed.value()
         
-            # turn off cutting for 5 cycles, only happen during retraction phase
+        # # # SkipCut Area # # #
+        #EWH: if skipping is signaled by the user from the GUI this code is run
         self.skip_checked.append(self.parent.cbx_skip.isChecked())
         self.skip_checked.pop(0)
         
@@ -241,22 +244,17 @@ class LEICAchopperlog(log.valuelogger):
             chopperSignal_prev_position = chopperSignal_position - 1
             chopperSignal_prev_value = self.parent.LEICAchopperlog.valuelog[chopperSignal_prev_position]
             
-#            print(f"Chopper Signal PREVIOUS POSITION = {chopperSignal_prev_position}")
-#            print(f"Chopper Signal PREVIOUS = {chopperSignal_prev_value}")
-#            print("-----------------------------------------------------------------")
             if chopperSignal_val == 1 or self.stop_mode == 1:
                 
                 if chopperSignal_prev_value == 0 or self.stop_mode == 1:
-#                    print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-#                    print("Entered Into Skip Cut")
-#                    print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
                     
                     self.skip_checked_num += 1
-                    #EWH: Setting "the wait to nose" time (hardcoded for current luxel tape sizes)  
+                    #EWH: Setting "the wait to nose" time (hardcoded for current luxel tape sizes) 
+                    #EWH: future users may need to change this if luxel ever changes the spacing or 
+                    # size of apertures.  
                     if self.skip_checked_num == 1:
                         #EWH: 13 cycles (15 to the nose) - but ensuring missing some before bad section
                         self.wait_cycle_num = 12 + self.parent.ATUMcyledurationlog.valuelog.__len__()
-                        #print(f"Wait Cycle Time Set to: {self.wait_cycle_num}")
                     
                     current_cycle_num = self.parent.ATUMcyledurationlog.valuelog.__len__()
                     #print(f"Current Cycle Num: {current_cycle_num}")
@@ -284,8 +282,6 @@ class LEICAchopperlog(log.valuelogger):
                             current_time = self.timelog[-1] 
                             
                             wait_for_cut = current_time - self.start_cutting_delay
-                            #print(f"Cut Duration = {self.Eric_cutDuration}")
-                            #print(f"wait for cut time = {wait_for_cut}")
                             
                             if wait_for_cut > self.Eric_cutDuration:
                                 
@@ -296,7 +292,7 @@ class LEICAchopperlog(log.valuelogger):
                                     #print("STOPPING CUTTING")
                                     self.parent.StopCut()
                                     self.StopCutTime = self.timelog[-1]
-                                    # turn off synchronization
+                                    #EWH: turn off synchronization
                                     self.parent.cbx_synTS.setChecked(False)
                                     NumSet = self.parent.sbx_NumSections.value()
                                     self.NumSet_target = NumSet + self.parent.ATUMcyledurationlog.valuelog.__len__()
@@ -375,6 +371,8 @@ class LEICAchopperlog(log.valuelogger):
                 else: 
                     self.parent.cbx_skip.setChecked(True)
             
+            #EWH: I believe this code allows one to do a "double skip" if there are two bad 
+            # apertues.  
             if self.parent.cbx_reskip.isChecked():
                 if self.chopperSignal == 0: 
                     self.skip_checked_num_future += 1
@@ -391,6 +389,7 @@ class LEICAchopperlog(log.valuelogger):
         if self.valuelog.__len__()<2:
             return
 
+        #EWH: counting the number of sections. 
         if self.valuelog[-1]==1 and self.valuelog[-2]==0: #cutting phase starts
             self.state = 0
             
@@ -418,6 +417,9 @@ class LEICAchopperlog(log.valuelogger):
             self.state = 1            
             self.downStateStart.append(self.timelog[-1])
             
+            #EWH: this limitor will stop the cutting if a given amount is reached. Probably not
+            # needed, but could be a way to prevent a sleepy opperator from cutting into the 
+            # following strand of Gridtape.
             if self.parent.section_number >= int(self.parent.textEdit_SectionLimit.toPlainText()):
                 self.parent.StopCams()
                 self.parent.StopCut()
@@ -432,7 +434,10 @@ class LEICAchopperlog(log.valuelogger):
                     self.parent.DisplayCycleDuration_(self.LEICAcycle)
                     print("LEICA cycle: {}s".format(round(self.LEICAcycle,2)))
 
-
+            # # # Synchronization # # #
+            #EWH: note, in development there is an updated version of synchronization that automatically 
+            # changed the adjustment factor proportionally to the amount of distance the offset is from 
+            # the target offset. Works really well, will push soon. 
             if self.parent.ATUMcyledurationlog.valuelog.__len__()>0:
                 CycleTime=self.parent.ATUMcyledurationlog.valuelog[-1]
                 TargetCycleTime=(self.parent._DistanceBetweenSlots/self.parent.sbx_targetCycleSpeed.value())
@@ -446,7 +451,9 @@ class LEICAchopperlog(log.valuelogger):
                         # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
                         if self.parent.cbx_synTS.isChecked():
                             cdelta = offset - self.parent.sbx_targetphase.value()
-                            try: 
+                            try:
+                                #EWH: measuring the offset value to difference and will then make sure the 
+                                # adjustment factor is low enough to not desychronize.  
                                 OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
 
                                 # offset Leica - ATUM
@@ -462,6 +469,8 @@ class LEICAchopperlog(log.valuelogger):
                                        af = 2
                                    else:
                                        af = 1
+                                    #EWH: if the user has checked the box for adjustment factor then their 
+                                    # custom input will be used. 
                                    if self.parent.cbx_adjFactor.isChecked():
                                        af = self.parent.sbx_adjFactor.value()
                                    if cdelta < 0:
@@ -474,10 +483,14 @@ class LEICAchopperlog(log.valuelogger):
                                     print("in sync")
                                 
                             except: 
+                                #EWH: catching a bug for the first time a cycle is completed. 
                                 print("No prior offset, Will calculate offset next time")
                             print("offset:{}".format(round(offset, 2)))
                             print("--------------------------------------------------------")
                             self.parent.Offsetlog.datacollector(offset)
+        #EWH: this is an important little area, this counter is used to make sure the adjustment in tape
+        # speed only occurs during the retraction phase of Leica. Probably a more elegant way to do this,
+        # but feel free to make it nicer. 
         if self.adjustment_counter > 100:
             self.parent.setTapeSpeed(BaseSpeed)
             self.adjustment_counter = 0
@@ -492,20 +505,20 @@ class ATUMchopperlog(log.valuelogger):
     upStateStart=[]
     downStateStart=[]
     
-    #EWH: virtual mode variables
+    #EWH: virtual mode variables - ignore them
     chopperSignal = 0
     switch_ = False
     num_switches = 0
     
+    #EWH: updating the value for the graph in the GUI. 
     def updateVis(self):
         try: 
             self.parent.ptsyncATUM_chopper.setData(self.timelog,self.valuelog)
         except: 
             print("Error: failed to update ATUMchopper log graph - line 765")
+
     def datacollector(self):
-                #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!
-                
-                #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!
+        #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!        
         global virtual_counter_ATUM
             
         if self.parent.unit_test == False:
@@ -518,6 +531,8 @@ class ATUMchopperlog(log.valuelogger):
                     self.chopperSignal=1
             except nidaqmx.DaqError as e:
                 print(f"Nidaq error detected: {e}")
+        
+        # # # Virtual Stuff - ignore # # # 
         else:
             if virtual_counter_ATUM < 1: #this is the "time" of no slot, hardwired
                 self.chopperSignal = 0
@@ -545,7 +560,7 @@ class ATUMchopperlog(log.valuelogger):
         virtual_counter_ATUM += 1
        #print(f"Chopper Signal for ATUM: {self.chopperSignal}")
             
-
+        #EWH: Logging the important information from the ATUM regarding positions and cycles. 
         self.updateLog(self.chopperSignal)
         #print("update log 10")
         if self.valuelog.__len__()<2:
@@ -605,8 +620,9 @@ class mainGUI(QtWidgets.QMainWindow):
     #gui elements whose name starts with '_' are excluded.
     GUIElements=[QtWidgets.QSlider,QtWidgets.QRadioButton,QtWidgets.QCheckBox,QtWidgets.QDoubleSpinBox,QtWidgets.QSpinBox,QtWidgets.QComboBox,QtWidgets.QLineEdit]
     _StartPosition=[]
-#    _CameraSNs=['CICAU1641091','CICAU1914024']
-    # _CameraSNs=['CICAU1641091','CICAU1914024','CICAU1914041']
+    #EWH: cameras were moved into their own GUI. 
+    #_CameraSNs=['CICAU1641091','CICAU1914024']
+    #_CameraSNs=['CICAU1641091','CICAU1914024','CICAU1914041']
     _syncATUM_chopperPort="Dev1/pfi0"
     _syncLEICA_chopperPort="Dev1/pfi1"
     _logpath='C:\dev\PyAGTUM\logs'
@@ -619,16 +635,15 @@ class mainGUI(QtWidgets.QMainWindow):
         print("Loading GUI config...")
         myconfig.LoadConfig(self,"pyAGTUM")
         
+        #EWH: virtual mode config stuff - ignore
         self.unit_test = bool(myconfig["pyAGTUM"]["_unit_test"])
         self.section_number = int(myconfig['pyAGTUM']['section_number'])
-        
-        print(self.unit_test)
         self._unit_test_pyAGTUM_SPEED = int(myconfig["pyAGTUM"]["_unit_test_pyAGTUM_SPEED"])
         
         print("Setup ATUM sync...")
         self.setupATUMsync()
 
-   
+        #EWH: if not in virtual mode, connect to the hardware. 
         if self.unit_test == False:
             print("Setup hardware...")
             self.SetupHardware()
@@ -649,6 +664,8 @@ class mainGUI(QtWidgets.QMainWindow):
 
         print("Show GUI...")
         self.show()
+
+    # # # Functions for GUI Buttons # # #
 
     def setTapeSpeed(self,value=None):
         if value is None:
@@ -674,6 +691,7 @@ class mainGUI(QtWidgets.QMainWindow):
             print("unit test mode")
 
     def setupATUMsync(self):
+        #EWH: data for the graphs for the GUI
         self.ptsyncLEICA_chopper = self.pg_sync.plot(pen=(0, 255, 200, 200))
         self.ptsyncATUM_chopper = self.pg_sync.plot(pen=(255, 0, 20, 200))
         self.ptOffset = self.pg_phasediff.plot(pen=(255, 0, 20, 200))
@@ -730,7 +748,7 @@ class mainGUI(QtWidgets.QMainWindow):
         self.syncLEICA_chopper=nidaqmx.Task()
         self.syncLEICA_chopper.di_channels.add_di_chan(self._syncLEICA_chopperPort)
 
-
+    #EWH: function called when starting the Leica and ATUM together
     def StartCams(self):
 
         if self.unit_test == False:
@@ -757,6 +775,7 @@ class mainGUI(QtWidgets.QMainWindow):
         self.Offsetlog.start()
         self.ATUMcyledurationlog.start()
 
+    #EWH: function for stopping the Leica and ATUM together.
     def StopCams(self):
         print("stopped cameras")
         if self.unit_test == False: 
@@ -775,11 +794,13 @@ class mainGUI(QtWidgets.QMainWindow):
         self.Offsetlog.stopLog()
         self.ATUMcyledurationlog.stopLog()
     
+    #EWH: start Leica
     def StartCut(self):
         if self.unit_test == False:
             Leica.startCuttingMotor()
         self.setReturnSpeed()
-        
+    
+    #EWH: stop Leica
     def StopCut(self):
         if self.unit_test == False:
             Leica.stopCuttingMotor()
@@ -815,7 +836,8 @@ class mainGUI(QtWidgets.QMainWindow):
         else: 
             value = 4.75 #hardwired
         self.DisplayEW.setHtml(str(round(value,3)))
-        
+    
+    #EWH: not really in use at the moment. 
     def goEW(self):
         value = self.sbx_setEW.value()
         if self.unit_test == False:
@@ -856,6 +878,7 @@ class mainGUI(QtWidgets.QMainWindow):
         self._StartPosition=\
             [tempGeometry.x(),tempGeometry.y(),tempGeometry.width(),tempGeometry.height()]
 
+        #EWH: saving the current GUI setup so it is the same when opened next time. 
         if not "GUIstate" in myconfig:
             myconfig["GUIstate"]={}
         for element in self.GUIElements:
@@ -945,6 +968,7 @@ class mainGUI(QtWidgets.QMainWindow):
         self.btn_goNS.clicked.connect(self.goNS)
         #self.btn_GetTension.clicked.connect(self.getTension)
 
+    #EWH: start the ATUM
     def TapeStart(self):
         if self.unit_test == False:
             if self.radiobtn_forward.isChecked():
@@ -952,6 +976,7 @@ class mainGUI(QtWidgets.QMainWindow):
             else:
                 Atum.Reverse()
 
+    #EWH: stop the ATUM
     def TapeStop(self):
         if self.unit_test == False:
             Atum.Stop()
@@ -995,6 +1020,6 @@ if __name__ == "__main__":
 
     print("Loading main GUI...")
     ui_path = os.path.join(application_path, 'ui')
-    window = mainGUI(os.path.join(ui_path,"PyAGTUM_mainwindow_220730_no_cams_EWH.ui")) #EWH
+    window = mainGUI(os.path.join(ui_path,"PyAGTUM_mainwindow.ui")) #EWH
 
     sys.exit(app.exec_())

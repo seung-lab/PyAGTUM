@@ -5,32 +5,26 @@ Created on Sat Jul 30 18:57:45 2022
 @author: jprice
 """
 
+"""
 
+Gridtape Cameras - very simialr to PyAGTUM, but with most of the non-camera things commented out. 
+There was an attempt to make some functionality to read the barcodes but this is too slow so it 
+was never implemented. There are two classes, one for each camera, the one above and the one below 
+the ATUM. 
 
-#import pyqtgraph as pg
+"""
+
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
-#from PIL import ImageQt
-
 import sys
 import os
 from AGTUMconfigparser import config
 from ximea import xiapi
 from datetime import datetime
-#import time
 import nidaqmx
-#import serial
-# import paintableqlabel
 import cv2
-#import copy
-
 import numpy as np
-#from scipy import stats, signal, fftpack
-#import leicaCmds as Leica
-#import atumCmds_2 as Atum
-## import syringepump as Pump
 import valuelogger as log
-#import barcode_reader as barcode
-#from threading import timer #EWH
+
 
 application_path = os.path.dirname(__file__)
 
@@ -500,6 +494,6 @@ if __name__ == "__main__":
 
     print("Loading main GUI...")
     ui_path = os.path.join(application_path, 'ui')
-    window = mainGUI(os.path.join(ui_path,"PyAGTUM_cams_window_220730_EWH.ui")) #EWH
+    window = mainGUI(os.path.join(ui_path,"PyAGTUM_cams_window.ui")) #EWH
 
     sys.exit(app.exec_())

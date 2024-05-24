@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
 
-# based on PyAGTUM_210216.py
-# only show 2 cameras
+"""
 
+LeicaCamWater - is a script for using the built in overhead microtome microscope camera to 
+watch the cutting of serial sections and monitor the water level. 
+
+"""
+# based on PyAGTUM_210216.py
+
+# Import Packages
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
-
 from AGTUMconfigparser import config
-
 import sys
 import os
 import paintableqlabel
 import cv2
 import serial
-
 import numpy as np
 import time
-
 import syringepump as Pump
 import valuelogger as log
 
-
-# https://stackoverflow.com/questions/44404349/pyqt-showing-video-stream-from-opencv/44404713
 
 application_path = os.path.dirname(__file__)
 
@@ -30,6 +30,7 @@ if sys.platform.startswith('win'):
 else:
     win=0
 
+#EWH: this "moving average" is used to calculate the water level 
 def moving_average(x, w,shape='same'):
 #    w = np.ones(w)
 #    out = np.convolve(x, w, mode=shape)
@@ -55,6 +56,7 @@ class Thread(log.valuelogger):
         self.parent=parent
 
     def run(self):
+        #EWH: if not in test mode (virtual), collect images from camera. 
         if self.parent.unit_test == False:
             #print(self.parent.camera_index)
             cap = cv2.VideoCapture(self.parent.camera_index, cv2.CAP_DSHOW)
@@ -70,6 +72,7 @@ class Thread(log.valuelogger):
             #print(cap.isOpened())
             nowtime = time.time()
             
+            #EWH: virtual mode, ignore 
             if self.parent.unit_test == True:
                 if ret == False:
                     cap = cv2.VideoCapture(video_path)             
@@ -93,7 +96,9 @@ class Thread(log.valuelogger):
                     
                 if (float(nowtime - starttime)) > float(self.parent.unit_test_LeicaCam_SPEED):
                     starttime = time.time()
+            #EWH: real code, this is where the information for the box on the camera is stored. 
             else:
+                #EWH: if the user has checked the box, the program will not accept any newly drawn boxes. 
                 if self.parent.cbx_ScreenLock.isChecked():
                     if self.first_time < 1:
                         print("Pump: Screen Locked")
@@ -125,14 +130,16 @@ class Thread(log.valuelogger):
                     if self.first_time > 0:
                         self.first_time = 0
                 try:
+                    #EWH: Collect the water level from the mean of the pixel values in the box. 
                     self.parent.waterlevellog.waterlevel=np.mean(frame[ROIYbegin:ROIYend,ROIXbegin:ROIXend])
                 except:
                     pass
     
                 p = QtGui.QImage(frame, frame.shape[1], frame.shape[0], QtGui.QImage.Format_RGB888)
-                #print(p)
                 
-                
+                #EWH: this code will set the box on the camera to be the same as the when the program was closed
+                # the last time if the user checks that option in the GUI. 
+
                 if self.parent.cbx_UseLastBox.isChecked():
                     # convert image file into pixmap
                     self.pixmap_image = QtGui.QPixmap.fromImage(p)
@@ -203,6 +210,7 @@ class waterlevellog(log.valuelogger):
 
 
     def updateVis(self):
+        #EWH: updating the graph of the water level. 
         if len(self.valuelog) < self.waterwindow: 
             pass
         else:
@@ -215,16 +223,9 @@ class waterlevellog(log.valuelogger):
             pass
         else:
             self.parent.DisplayCurrentLevel.setHtml(str(round(self.valuelog[-1],2)))
-        #self.parent.sldr_WaterThres.setMinimum(min(self.parent.pg_waterlevel.getAxis('left').range))
-        #self.parent.sldr_WaterThres.setMaximum(max(self.parent.pg_waterlevel.getAxis('left').range))
-        
-        #print(moving_average(self.valuelog,self.waterwindow,'same'))
 
     def datacollector(self):
         self.updateLog(self.waterlevel)
-        
-
-            #print(moving_average(self.valuelog,self.waterwindow,'same'))
             
         if self.parent.unit_test == True: 
         
@@ -250,7 +251,7 @@ class waterlevellog(log.valuelogger):
                     pass
         
 # =============================================================================
-#         #EWH: Water Level Oscillating Controller with PID-style Control
+#         #EWH: Water Level Oscillating Controller with Proportional Control
 #
 # This is somewhat nutty way of doing this, but the goal of this is to oscillate 
 # between the two Upper and Lower Thresholds. There are multiple uses of time. 
@@ -275,7 +276,7 @@ class waterlevellog(log.valuelogger):
 # counter_iters_pump. I just have it not do anything than a print statement, until
 # counter_iters_pump becomes larger than valuelog. 
 #
-# PID Style Controller:
+# Proportional Style Controller:
 # The idea is that the distance the (in pixels) the line of the average pixel
 # intensity is from the Water Level Center line, the more water is pumped to get
 # back to the Water Level Center Line. Using 3.5 mL / sec and 1/4 of the time if
@@ -289,6 +290,9 @@ class waterlevellog(log.valuelogger):
 
 # =============================================================================
         
+        #EWH: this code is setting up the window of time that can be used to collect points 
+        # for the average of the water level. This corresponds with the time it takes to cycle
+        # through the Leica's cutting and retraction. 
         if self.counter_iters_pump == 0:
             self.counter_start_time = time.time()
             #print(self.counter_start_time)
@@ -314,9 +318,7 @@ class waterlevellog(log.valuelogger):
             if self.finished == True:
                 self.parent.DisplayCurrentMax.setHtml(str(round(np.max(self.valuelog[(-1*self.counter_iters_pump):-1]),2)))
         
-#        length_log = len(self.valuelog)
-#        print(f"Log length: {length_log}")
-#        print(f"Iterations: {self.counter_iters_pump}")
+        #EWH: if there is a warning this will set the warning up (time) and change the button flag (yellow)
         if self.bad_pump_warning == True:
             self.parent.DisplayCurrentWarningTime.setHtml(str(round((120-(time.time()-self.bad_pump_warning_timer)),0)))
             if time.time() - self.bad_pump_warning_timer > 120:
@@ -329,20 +331,15 @@ class waterlevellog(log.valuelogger):
                 self.bad_pump_warning = False
                 self.parent.DisplayCurrentWarningTime.setHtml(str(0))
 
-        
+        #EWH: everything below this is when the user has activated the pump on via the GUI. 
         if self.parent.cbx_pumpOn.isChecked():
-#            cycleduration = self.parent.sbx_CycleDurationSet.value()
-#            period_start = time.time()
-#            period_end = period_start + cycleduration
-#            with open('C:\dev\logs\waterlevel.csv', 'a', newline='') as f: #EWH
-#                writer = csv.writer(f) #EWH
-#                writer.writerow(str(round(self.waterlevel,4))) #EWH 
             
             if self.first_pass == True:
                 self.parent.pb_PumpLight.setStyleSheet("background-color: yellow")
                 self.first_pass = False
             
-            #print(np.max(self.valuelog[(-1*self.counter_iters_pump):-1]))
+            #EWH: this is setting up the counters for each scenario (passing a user defined threshold (above or below)
+            #and a user defined limit (above or below))
             if len(self.valuelog) > self.counter_iters_pump:
                 
                 if self.bad_pump_tracking_gate_1 == 1: 
@@ -406,6 +403,7 @@ class waterlevellog(log.valuelogger):
                                 self.parent.pb_PumpLight.setStyleSheet("background-color: yellow")
                                 self.first_pass_after_warning = False
                         
+                            #EWH: measuring if the pumping worked. 
                             if np.max(self.valuelog[(-1*self.counter_iters_pump):-1]) > self.parent.sbx_WaterLevelCenter.value():
                                 if self.label_under < 1:
                                     print("Pump: Reached Center Threshold: will stop pumping...")
@@ -430,6 +428,7 @@ class waterlevellog(log.valuelogger):
                                 if self.time_threshold + self.parent.dsbx_LeicaCycle.value() < current_time:
                                     self.entered_under = 0
                                 
+                                #EWH: sending the pump signal to the syringe pump 
                                 if self.time_threshold + (self.threshold_dif/4) > current_time:
                                     
                                     Pump.trigger_pump()
@@ -438,57 +437,16 @@ class waterlevellog(log.valuelogger):
                                     self.parent.pb_PumpLight.setStyleSheet("background-color: green")
                                     
                                     self.time_for_green = time.time()
-                                          
+
+                                #EWH: turn the pump button flag green when actively pumping and yellow when on but not pumping.           
                                 else:
                                     if current_time - self.time_for_green > 1:
                                         self.parent.pb_PumpLight.setStyleSheet("background-color: yellow")
                                         self.time_for_green = 0 
                                     else: 
                                         pass
-                                    
-#            
-#                            if (np.max(self.valuelog[(-1*self.counter_iters_pump):-1]) < self.parent.sbx_WaterLevelLowerThres.value() - \
-#                                                                                            self.parent.sbx_WaterThresRange.value() \
-#                                                                                            or self.thres_reached):
-#                                self.thres_reached = True 
-#                                
-#                                if self.under_thres < 1:
-#                                    self.starttime_pump = time.time()
-#                                    self.under_thres += 1
-#                                    self.label_under = 0
-#                                    print("Pump: Reached Lower Threshold: will begin pumping...")
-#                                    
-#                                cur_pump_time = time.time()
-#                                if cur_pump_time - self.starttime_pump > 30:
-#                                    
-#                                    if cur_pump_time - self.starttime_pump < 31:
-#                                    
-#                                        if self.parent.unit_test == False:
-#                                            Pump.trigger_pump() 
-#                                            self.over_thres = 0
-#                                            self.over_error = 0
-#                                            print("Pump: Pumping...")
-#                                            self.parent.pb_PumpLight.setStyleSheet("background-color: green")
-#                                            self.time_for_green = time.time()
-#                                            #print(f"Water Pump: pumped {cur_pump_time}")
-#                #                        row = [1] #EWH
-#                #                        with open('C:\dev\logs\waterpumps.csv', 'a', newline='') as f: #EWH
-#                #                            writer = csv.writer(f) #EWH
-#                #                            writer.writerow(row) #EWH
-#                                        else:
-#                                            if current_time - self.time_for_green > 1:
-#                                                self.parent.pb_PumpLight.setStyleSheet("background-color: yellow")
-#                                                self.time_for_green = 0 
-#                                            else: 
-#                                                pass
-#                                    else:
-#                                        self.starttime_pump = time.time()
-                #            else:
-                #                row = [0] #EWH
-                #                with open('C:\dev\logs\waterpumps.csv', 'a', newline='') as f: #EWH
-                #                    writer = csv.writer(f) #EWH
-                #                    writer.writerow(row) #EWH
-                                        
+
+                            #EWH: checking the if the pumping got the water level back to the desired water level.             
                             if np.max(self.valuelog[(-1*self.counter_iters_pump):-1]) > self.parent.sbx_WaterLevelCenter.value() - \
                                                                                             self.parent.sbx_WaterThresRange.value():
                                 
@@ -588,8 +546,10 @@ class mainGUI(QtWidgets.QMainWindow):
 #          serial_port = serial.Serial("COM11",9600)
 #          print("Port is open again")
         
+        #EWH: virtual mode - ignore 
         self.unit_test = bool(myconfig["LeicaCam"]["_unit_test"])
         
+        #EWH: getting the last box on the GUI from the config 
         self.ROIXbegin = int(myconfig["LeicaCam"]["ROIXbegin"]) 
         self.ROIXend = int(myconfig["LeicaCam"]["ROIXend"])
         self.ROIYbegin = int(myconfig["LeicaCam"]["ROIYbegin"])
@@ -616,12 +576,7 @@ class mainGUI(QtWidgets.QMainWindow):
                 self.setWindowState(QtCore.Qt.WindowNoState)
                 self.setGeometry(self._StartPosition[0],self._StartPosition[1],self._StartPosition[2],self._StartPosition[3])
 
-#        cbx_pumpOn = False
-#        _StartPosition = 222, 332, 2564, 1273
-
         self.paintableCam=paintableqlabel.paintableqlabel(self.cam_knife)
-
-#        th.changePixmap.connect(self.setImage)
         
         self.CamTh.start()
 
@@ -634,6 +589,8 @@ class mainGUI(QtWidgets.QMainWindow):
         print("Show GUI...")
         self.show()
         
+    # # # Functions for GUI etc # # # 
+
     def setCycleDuration(self,value=None):
         if value is None:
             value=self.sbx_CycleDurationSet.value()
@@ -646,7 +603,6 @@ class mainGUI(QtWidgets.QMainWindow):
         newValue=self.sbx_WaterLevelLowerThres.value()
         self.ptwaterthres_lower.setValue(newValue)
         #print("Threshold updated: {0}".format(newValue))
-        
         
     def WaterThresholdChangedUpper(self):
         newValue=self.sbx_WaterLevelUpperThres.value()
@@ -671,7 +627,8 @@ class mainGUI(QtWidgets.QMainWindow):
     def LeicaValueChanged(self):
         newValue = self.dsbx_LeicaCycle.value()
         #print(f"Updated Leica Cycle Value: {newValue}")
-        
+    
+    #EWH: doesn't really work, still in development. 
     def StopCam(self):
         self.CamTh.terminate()
         self.is_running = False
@@ -856,6 +813,6 @@ if __name__ == "__main__":
         sys.exit()
 
     ui_path = os.path.join(application_path, 'ui')
-    window = mainGUI(os.path.join(ui_path,"LeicaCam_Window_210215_EWH.ui"))
+    window = mainGUI(os.path.join(ui_path,"LeicaCam_Window.ui"))
 
     sys.exit(app.exec_())

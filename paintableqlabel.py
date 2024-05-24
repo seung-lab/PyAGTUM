@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+
+"""
+
+EWH - I did not make this, but this is what is used for the LeicaWaterCam script
+so that a user can draw the area they want to get the light reflection off the 
+water from. 
+
+"""
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 
 class paintableqlabel(QtWidgets.QLabel):
