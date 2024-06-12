@@ -1,4 +1,4 @@
-# pyAGTUM 
+# PyAGTUM 
 
 ## Warning: 
 ---
@@ -8,7 +8,7 @@ This library and the code are subject to change as this project is ongoing.
 ## About: 
 --- 
 
-**pyAGTUM** is a program for controlling a Leica UC7 ultramicrotome and a modified version of the RMC automated tape collecting machine (ATUM) and a New Era Pump Systems syringe pump. The modifications to the RMC will be listed below in the construction section of this document and CAD files can be found in the folder CAD files. The modifications were made to enhance the RMC for collecting serial thin tissue sections on Luxel's Gridtape for TEM imaging. The ultimate purpose of this program is to control all machines and synchronize the cutting of the UC7 with the placement of the aperture in the Gridtape at the nose of the ATUM while also monitoring the water level in the boat of the diamond knife. Additionally a Zaber 3 axis stage is used to position the ATUM, and remember positions for storing the sysem away from the cutting area and resuming at the cutting area. All GUI use PyQT5 (except hardware.ui).  
+**PyAGTUM** is a program for controlling a Leica UC7 ultramicrotome and a modified version of the RMC automated tape collecting machine (ATUM) and a New Era Pump Systems syringe pump. The modifications to the RMC will be listed below in the construction section of this document and CAD files can be found in the folder CAD files. The modifications were made to enhance the RMC for collecting serial thin tissue sections on Luxel's Gridtape for TEM imaging. The ultimate purpose of this program is to control all machines and synchronize the cutting of the UC7 with the placement of the aperture in the Gridtape at the nose of the ATUM while also monitoring the water level in the boat of the diamond knife. Additionally a Zaber 3 axis stage is used to position the ATUM, and remember positions for storing the sysem away from the cutting area and resuming at the cutting area. All GUI use PyQT5 (except hardware.ui).  
 
 ---
 
