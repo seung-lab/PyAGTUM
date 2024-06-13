@@ -1,4 +1,4 @@
-# PyAGTUM 
+# pyAGTUM 
 
 ## Warning: 
 ---
@@ -8,31 +8,31 @@ This library and the code are subject to change as this project is ongoing.
 ## About: 
 --- 
 
-**PyAGTUM** is a program for controlling a Leica UC7 ultramicrotome and a modified version of the RMC automated tape collecting machine (ATUM) and a New Era Pump Systems syringe pump. The modifications to the RMC will be listed below in the construction section of this document and CAD files can be found in the folder CAD files. The modifications were made to enhance the RMC for collecting serial thin tissue sections on Luxel's Gridtape for TEM imaging. The ultimate purpose of this program is to control all machines and synchronize the cutting of the UC7 with the placement of the aperture in the Gridtape at the nose of the ATUM while also monitoring the water level in the boat of the diamond knife. Additionally a Zaber 3 axis stage is used to position the ATUM, and remember positions for storing the sysem away from the cutting area and resuming at the cutting area. All GUI use PyQT5 (except hardware.ui).  
+**pyAGTUM** is a program for controlling a Leica UC7 ultramicrotome and a modified version of the RMC automated tape collecting machine (ATUM) and a New Era Pump Systems syringe pump. The modifications to the RMC will be listed below in the construction section of this document and CAD files can be found in the folder CAD files. The modifications were made to enhance the RMC for collecting serial thin tissue sections on Luxel's Gridtape for TEM imaging. The ultimate purpose of this program is to control all machines and synchronize the cutting of the UC7 with the placement of the aperture in the Gridtape at the nose of the ATUM while also monitoring the water level in the boat of the diamond knife. Additionally a Zaber 3 axis stage is used to position the ATUM, and remember positions for storing the sysem away from the cutting area and resuming at the cutting area. All GUI use PyQT5 (except hardware.ui).  
 
 ---
 
 There are four key .py files for running pyAGTUM, each one controlling a different aspect of the system:
 
-- **PyAGTUM.py** is the script for the main UI for controlling the cutting and speed of the tape movement through the ATUM. This program will attempt to synchronize the cutting and the placement of the apertures on Gridtape. 
+- **PyAGTUM_210126_SkipCut_EWH.py** is the script for the main UI for controlling the cutting and speed of the tape movement through the ATUM. This program will attempt to synchronize the cutting and the placement of the apertures on Gridtape. 
 
 - **LeicaCamWater.py** is the script for getting the feed from the Leica IC90E microscope camera and monitoring the water level in the boat using a user defined subarea of the camera feed and a user defined threshold for a "good water level".  
 
-- **GridtapeCameras.py** is the script for the UI connecting to the cameras that observe the Gridtape before and after section collection. 
+- **GridtapeCameras_EWH_220730.py** is the script for the UI connecting to the cameras that observe the Gridtape before and after section collection. 
 
 - **hardwareUI.py** is the script for controlling the Zaber 3 axis stage for moving between storage, pickup, and any desired location inbetween. 
 
-### PyAGTUM.py
+### PyAGTUM_210126_SkipCut_EWH.py
 
 Note: there are many features that are not in use, for example, the valuelogger that may latter be reimplemented but as of now are no longer used. The main features of the UI will be covered in this section, but not all classes and functions will be covered in this README. 
 
-`PyAGTUM.py` requires the scripts 
+`PyAGTUM_210126_SkipCut_EWH.py` requires the scripts 
 1. AGTUMconfigparser.py
 2. atumCmds_2.py
 3. leicaCmds.py
 4. valuelogger.py
 
-Running `PyAGTUM.py` in any terminal should result in several starting messages. After ingesting the configuration filem, the script first loads the UI from `PyAGTUM_mainwindow.ui`. Default settings for the UI can be found in the configuration file: `DefaultConfig_win-3rdCam_-Water.cfg`. 
+Running `PyAGTUM_210126_SkipCut_EWH.py` in any terminal should result in several starting messages. After ingesting the configuration filem, the script first loads the UI from `PyAGTUM_mainwindow_220730_no_cams_EWH.ui`. Default settings for the UI can be found in the configuration file: `DefaultConfig_win-3rdCam_-Water.cfg`. 
 
 The class `mainGUI()` contains the widgets and main functions for opening and processing UI requests in the interface. The first important function call is `self.setupATUMsync()` which sets up the plot for plotting the light choppers of the ATUM and Leica. 1 indicates the presence of light (upstate) and 0 indicated the absence of light (downstate). For the ATUM upstate corresponds to the presence of an aperture in light chopper and for the Leica upstate represents the cutting *window*. Important, this is the cutting window, **not** exactly where the cutting is happening as each sample for cutting is a different length. This is where the offset becomes important for actually lining up the cutting and placement of the thin section with the Gridtape window. `setupATUMsync` also sets up the logs for many of the important variables like tapespeed, slot duration, and offset, not all of which are used in the current version of pyAGTUM. Next, `self.SetupHardware()` is called which connects to the Nidaq connected to the light choppers to recieve signals from them about the state of the cutting and Gridtape movement. `mainGUI` then connects all of the button, spinboxes, etc to the their respective actions through `self.ConnectGUISlots()`. All actions for buttons can be found here. The main UI is then setup and displayed on screen. 
 
@@ -54,7 +54,7 @@ Users may also notice a lot of comments referring to a "virtual mode" which is a
 3. syringepump.py
 4. valuelogger.py
 
-When running the `LeicaCamWater.py` script in a terminal it will first load the configration `DefaultConfig_win-3rdCam_-Water.cfg` and UI file `LeicaCam_Window.ui`. It will also load in the last "saved" ROI for measuring the water level. There is no actual save button or feature, but if the program is exited out off normally it will also save the location of the box in the current video feed from the Leica. The thread for running the video feed form the Lecia is made and started `self.CamTH = Thread(self)` and `self.CamTH.start()`. The function `self.paintableCam` is also created by feeding `self.cam_knife` into `paintableqlabel`. The main UI for LeicaCamWater is then displayed on the screen. 
+When running the `LeicaCamWater.py` script in a terminal it will first load the configration `DefaultConfig_win-3rdCam_-Water.cfg` and UI file `LeicaCam_Window_210215_EWH.ui`. It will also load in the last "saved" ROI for measuring the water level. There is no actual save button or feature, but if the program is exited out off normally it will also save the location of the box in the current video feed from the Leica. The thread for running the video feed form the Lecia is made and started `self.CamTH = Thread(self)` and `self.CamTH.start()`. The function `self.paintableCam` is also created by feeding `self.cam_knife` into `paintableqlabel`. The main UI for LeicaCamWater is then displayed on the screen. 
 
 In the class `Thread()` the function `run` starts the paintableqlabel and video feed from the Leica using CV2. As the user clicks and drags a box along the paintableqlabel in the UI it record the position in ROIXbeg, ROIXend, ROIYbeg, and ROIYend. The "waterlevel" which is will be used throughout the `waterlevellog` is determined here `self.parent.waterlevellog.waterlevel=np.mean(frame[ROIYbegin:ROIYend,ROIXbegin:ROIXend])` where the mean of the pixels is calculated. The change in the mean of the pixels reflects the change in the amount of light reflecting off the water as it evaporates. There is also a feature in this class where if the user has selected the spinbox for "Screen Lock" the ROI will not be changed even if a new box is drawn (this is to prevent an accident where someone clicks in the UI and ruins the sectioning run). The numbers for the ROI positions are then written into variables in `mainGUI`, ROIXbegin, ROIXend, ROIYbegin, ROIYend where they will also be saved to the config file at the end.   
 
@@ -64,12 +64,12 @@ Upon the user presseing **START** in the UI, `self.startCams` is called which ca
 * Red = Error: user must see notification as to specific water level issue
 The next lines of code are checking if the water level has reached the desired level over the past 4 Leica cutting cycles. If it failed to reach that level then it goes into the Error state and will prevent pumping for a hard coded amount of time (60 seconds) and until that time is reached it will not allow the pump to go into the code for checking if it needs to pump `if round((current_time - self.warning_timer),1) > 60 or self.warning_active == False:`. If it is not in the warning state, then the function measures the max of the water level from the current moment to all the iterations back for a single Leica cutting cycle `np.max(self.valuelog[(-1*self.counter_iters_pump):-1])` and compares that the user defined level and threshold range. If it is less than then the script will determine by how much it is under and pump more or less water accordingly. It will also keep track of how many time it has done this for the error catching `self.entered_under == 0`. Currently the amount of time for pumping is the difference between the threshold and the actual max of the water level, *self.threshold_dif*, divided by 4. This works for the Diatome Maxi boats, but may not be ideal for your setup. It is best however to change the amount pumped at the level of the syringe interface at the syringe hardware instead of in the code here. The pump is then triggered to pump using `Pump.trigger_pump()` and will print "Pump: pumping..." in the terminal during the pump.  
 
-### GridtapeCameras.py
-`GridtapeCameras.py` requires the scripts 
+### GridtapeCameras_EWH_220730.py
+`GridtapeCameras_EWH_220730.py` requires the scripts 
 1. AGTUMconfigparser.py
 2. valuelogger.p
 
-Run the script GridtapeCameras.py in a terminal and that should load the config file `DefaultConfig_win-cameras.cfg` and the UI file `PyAGTUM_cams_window.ui` and open the GUI. The overall layout of this script is nearly identical to `PyAGTUM_210126_SkipCut_EWH.py`. The main difference is in `mainGUI()`, the function `self.SetupHardware()` now has the `PreCamTimer` and `PostCamTimer` for the two cameras where settings for the cameras can be changed. However, changing these settings may make seeing the section in the post sectioning camera difficult to see. In `PreCamTimer` there is commented out code for adding a barcode reader to get the exact section number, but this functionallity causes the computer to run slow and freeze. `PostCamTimer` has functionality for measuring the tape speed using computer vision that has been commented out. This could be brough back by users with presumably little issue. 
+Run the script GridtapeCameras_EWH_220730.py in a terminal and that should load the config file `DefaultConfig_win-cameras.cfg` and the UI file `PyAGTUM_cams_window_220730_EWH.ui` and open the GUI. The overall layout of this script is nearly identical to `PyAGTUM_210126_SkipCut_EWH.py`. The main difference is in `mainGUI()`, the function `self.SetupHardware()` now has the `PreCamTimer` and `PostCamTimer` for the two cameras where settings for the cameras can be changed. However, changing these settings may make seeing the section in the post sectioning camera difficult to see. In `PreCamTimer` there is commented out code for adding a barcode reader to get the exact section number, but this functionallity causes the computer to run slow and freeze. `PostCamTimer` has functionality for measuring the tape speed using computer vision that has been commented out. This could be brough back by users with presumably little issue. 
 
 ### hardwareUI.py 
 `hardwareUI.py` requires the scripts: 
@@ -77,7 +77,7 @@ Run the script GridtapeCameras.py in a terminal and that should load the config 
 2. atumCmds_2.py
 3. leicaCmds.py
 
-This GUI uses tkinter to form the main window and widgets. Most of the code is setting this up and many of the features in this script are not used (for example, moving the Leica stage or starting the ATUM). Those features have been moved to `PyAGTUM.py`. The important functions are those that call functions from xyzStageCmds which is `Stages` in this script. An important function is `updateReadouts()` which updates all stage positions in the XYZ stage. There are specific functions that get called when pressed by the user in the UI which will stow, `clkStagesStow()`, set the pickup (sectioning) location, `clkStagesSetPickup`, move to the pickup location, `clkStagesMoveToPickup`, and importantly park the stage which will not allow the user to move the stage until they "unpark" the stage by clicking the button again, `clkStagesParking()`. This can prevent accidental movements while sectioning. There are also "move" and "jog" features that are utalized in the UI as the user can move to a specific location or jog a specific distance.   
+This GUI uses tkinter to form the main window and widgets. Most of the code is setting this up and many of the features in this script are not used (for example, moving the Leica stage or starting the ATUM). Those features have been moved to `PyAGTUM_210126_SkipCut_EWH.py`. The important functions are those that call functions from xyzStageCmds which is `Stages` in this script. An important function is `updateReadouts()` which updates all stage positions in the XYZ stage. There are specific functions that get called when pressed by the user in the UI which will stow, `clkStagesStow()`, set the pickup (sectioning) location, `clkStagesSetPickup`, move to the pickup location, `clkStagesMoveToPickup`, and importantly park the stage which will not allow the user to move the stage until they "unpark" the stage by clicking the button again, `clkStagesParking()`. This can prevent accidental movements while sectioning. There are also "move" and "jog" features that are utalized in the UI as the user can move to a specific location or jog a specific distance.   
 
 
 ## Getting Started: 

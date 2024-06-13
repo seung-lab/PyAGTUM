@@ -24,7 +24,7 @@ changes in the GUI.
 """
 
 # Package Imports
-
+import xyzStageCmds
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
 from PIL import ImageQt
@@ -56,6 +56,9 @@ if sys.platform.startswith('win'):
     win=1
 else:
     win=0
+
+#EWH: adding in the stages for the ATUM to move with cutting.
+Stages = xyzStageCmds.stages(3) # need to specify the number of axes to create
 
 # # # # # # # # # Logging Classes # # # # # # # # # # 
         
@@ -161,6 +164,16 @@ class LEICAchopperlog(log.valuelogger):
     stop_cutting_delay = 0 #EWH 
     second_time_wait_time = 0 #EWH
     Eric_cutDuration = 0 #EWH
+
+    #EWH: Variables for measuring distances of cut
+    cut_dist_mm = 0
+    cut_mm = 0
+    cut_nm = 0
+    previous_section_total = 0
+    stage_flag_timer = 5
+    stage_flag_time = 0
+    stage_flag_first = 0
+    adjustment_counter_2 = 0
     
     #EWH: virtual mode variables
     chopperSignal = 0
@@ -413,7 +426,10 @@ class LEICAchopperlog(log.valuelogger):
                 retractDuration=self.upStateStart[-1]-self.downStateStart[-1]
                 self.parent.LEICAretractdurationlog.datacollector(retractDuration)
 
+
+        #EWH: this is where we make sure to only speed up or slow down during retraction and not during cut.
         if self.valuelog[-2]==1 and self.valuelog[-1]==0: #retraction phase starts
+
             self.state = 1            
             self.downStateStart.append(self.timelog[-1])
             
@@ -434,10 +450,12 @@ class LEICAchopperlog(log.valuelogger):
                     self.parent.DisplayCycleDuration_(self.LEICAcycle)
                     print("LEICA cycle: {}s".format(round(self.LEICAcycle,2)))
 
+            #EWH if the log has been populated, check the retraction state.
+            #if self.upStateStart.__len__()>0 and self.downStateStart.__len__()>0:
             # # # Synchronization # # #
-            #EWH: note, in development there is an updated version of synchronization that automatically 
-            # changed the adjustment factor proportionally to the amount of distance the offset is from 
-            # the target offset. Works really well, will push soon. 
+            #EWH: this code changes the adjustment factor proportionally to the amount of distance the offset is from
+            # the target offset. Works really well, will push soon.
+
             if self.parent.ATUMcyledurationlog.valuelog.__len__()>0:
                 CycleTime=self.parent.ATUMcyledurationlog.valuelog[-1]
                 TargetCycleTime=(self.parent._DistanceBetweenSlots/self.parent.sbx_targetCycleSpeed.value())
@@ -445,59 +463,168 @@ class LEICAchopperlog(log.valuelogger):
                 self.parent.TapeSpeedDifflog.datacollector(TapeSpeedDiff)
 
                 if self.parent.tapespeedlog.valuelog.__len__()>0:
+                    #EWH: I believe this is the line that makes sure we only move the tape faster or slower when not
+                    # actively cutting.
                     if self.upStateStart.__len__()>1 and self.parent.ATUMchopperlog.upStateStart.__len__()>0:
                         offset=self.upStateStart[-1]-self.parent.ATUMchopperlog.upStateStart[-1]
+                        self.adjustment_counter_2 += 1
 
                         # 210130 ZZ adjust tape speed for each cycle based on ATUM cycle time
                         if self.parent.cbx_synTS.isChecked():
-                            cdelta = offset - self.parent.sbx_targetphase.value()
-                            try:
-                                #EWH: measuring the offset value to difference and will then make sure the 
-                                # adjustment factor is low enough to not desychronize.  
-                                OffsetDiff = abs(self.parent.Offsetlog.valuelog[-1]) - abs(offset)
+                            cdelta = abs(offset - self.parent.sbx_targetphase.value())
+                            #print(cdelta)
 
-                                # offset Leica - ATUM
-                                # offset < 0 -> Leica happened then ATUM
-                                # more minus -> ATUM later than leica too much
-    
-                                # ATUMcycle = np.mean(self.parent.ATUMcyledurationlog.valuelog[-2:])
-                                # cdelta = ATUMcycle - LEICAcycle
-                                if abs(cdelta) > 0.4:
-                                   self.adjustment_counter += 1
-                                   if OffsetDiff < 0:
-                                       # not getting better
-                                       af = 2
+                            if self.parent.cbx_adjFactor_2.isChecked(): #automatic adjustment
+                               self.adjustment_counter += 1
+                               if offset < self.parent.sbx_targetphase.value():
+                                   if cdelta < 0.3:
+                                       if cdelta  < 0.2:
+                                           if cdelta > 0.1:
+                                               print('+ + + + IN SYNC + + + +')
+                                               print("Offset: {}".format(round(offset,3)))
+                                               speed_change = abs(BaseSpeed + (0.0125*cdelta))
+                                               self.parent.setTapeSpeed(speed_change)
+                                               print("ATUM: tape speed up - - - - speed {}".format(round(speed_change,4)))
+                                           else:
+                                               print('+ + + + IN SYNC + + + +')
+                                               print("Offset: {}".format(round(offset, 3)))
+                                               speed_change = abs(BaseSpeed + (0.005*cdelta))
+                                               self.parent.setTapeSpeed(speed_change)
+                                               print("ATUM: tape speed up - - - - speed {}".format(round(speed_change,4)))
+                                       else:
+                                           print('+ + + + IN SYNC + + + +')
+                                           print("Offset: {}".format(round(offset, 3)))
+                                           speed_change = abs(BaseSpeed + (0.02 * cdelta))
+                                           self.parent.setTapeSpeed(speed_change)
+                                           print("ATUM: tape speed up - - - - speed {}".format(round(speed_change, 4)))
+
                                    else:
-                                       af = 1
-                                    #EWH: if the user has checked the box for adjustment factor then their 
-                                    # custom input will be used. 
-                                   if self.parent.cbx_adjFactor.isChecked():
-                                       af = self.parent.sbx_adjFactor.value()
-                                   if cdelta < 0:
-                                       self.parent.setTapeSpeed(BaseSpeed + 0.03*af)
-                                       print("tape speed up")
+                                       speed_change = abs(BaseSpeed + (0.1*cdelta))
+                                       if speed_change > 0.6:
+                                            self.parent.setTapeSpeed(0.6)
+                                            print("Offset: {}".format(round(offset, 3)))
+                                            print("ATUM: tape speed up - - - - speed {}".format(round(0.6, 4)))
+                                       else:
+                                            self.parent.setTapeSpeed(speed_change)
+                                            print("Offset: {}".format(round(offset, 3)))
+                                            print("ATUM: tape speed up - - - - speed {}".format(round(speed_change,4)))
+                               else:
+                                   if cdelta < 0.3:
+                                       if cdelta < 0.2:
+                                           if cdelta > 0.1:
+                                               print('+ + + + IN SYNC + + + +')
+                                               print("Offset: {}".format(round(offset,3)))
+                                               speed_change = abs(BaseSpeed - (0.0125*cdelta))
+                                               self.parent.setTapeSpeed(speed_change)
+                                               print("ATUM: tape slow down - - - - speed {}".format(round(speed_change,4)))
+                                           else:
+                                               print('+ + + + IN SYNC + + + +')
+                                               print("Offset: {}".format(round(offset, 3)))
+                                               speed_change = abs(BaseSpeed - (0.005*cdelta))
+                                               self.parent.setTapeSpeed(speed_change)
+                                               print("ATUM: tape speed up - - - - speed {}".format(round(speed_change,4)))
+                                       else:
+                                           print('+ + + + IN SYNC + + + +')
+                                           print("Offset: {}".format(round(offset,3)))
+                                           speed_change = abs(BaseSpeed - (0.02*cdelta))
+                                           self.parent.setTapeSpeed(speed_change)
+                                           print("ATUM: tape slow down - - - - speed {}".format(round(speed_change,4)))
                                    else:
-                                       self.parent.setTapeSpeed(BaseSpeed - 0.03*af)
-                                       print("tape slow down")
+                                       speed_change = abs(BaseSpeed - (0.1*cdelta))
+                                       if speed_change < 0.2:
+                                           self.parent.setTapeSpeed(0.2)
+                                           print("Offset: {}".format(round(offset, 3)))
+                                           print("ATUM: tape slow down - - - - speed {}".format(round(0.2, 4)))
+                                       else:
+                                            self.parent.setTapeSpeed(speed_change)
+                                            print("Offset: {}".format(round(offset, 3)))
+                                            print("ATUM: tape slow down - - - - speed {}".format(round(speed_change,4)))
+
+
+                            else:
+                                if self.parent.cbx_adjFactor.isChecked():
+                                    af = self.parent.sbx_adjFactor.value()
                                 else:
-                                    print("in sync")
-                                
-                            except: 
-                                #EWH: catching a bug for the first time a cycle is completed. 
-                                print("No prior offset, Will calculate offset next time")
-                            print("offset:{}".format(round(offset, 2)))
-                            print("--------------------------------------------------------")
+                                    af = 2
+                                if offset < 0:
+                                    self.parent.setTapeSpeed(BaseSpeed + 0.03 * af)
+                                    print("ATUM: tape speed up")
+                                    print("Offset: {}".format(round(offset, 3)))
+                                    if cdelta < 0.3:
+                                        print('IN SYNC')
+                                else:
+                                    self.parent.setTapeSpeed(BaseSpeed - 0.03 * af)
+                                    print("ATUM: tape slow down")
+                                    print("Offset: {}".format(round(offset, 3)))
+                                    if cdelta < 0.3:
+                                        print('IN SYNC')
                             self.parent.Offsetlog.datacollector(offset)
+                        print("----------------------------------------------------------------------------")
+
         #EWH: this is an important little area, this counter is used to make sure the adjustment in tape
-        # speed only occurs during the retraction phase of Leica. Probably a more elegant way to do this,
-        # but feel free to make it nicer. 
+        # speed is only for a short time period and gets set back.
         if self.adjustment_counter > 100:
             self.parent.setTapeSpeed(BaseSpeed)
             self.adjustment_counter = 0
+
+        #EWH: setting up moving the stage forward at each ~200th cut for 45 nm sections.
+        #EWH: this seems to be a good number (25) to get it to move in middle of the retraction phase.
+        if self.adjustment_counter_2 > 25:
+            self.adjustment_counter_2 = 0
+            if self.parent.cbx_AutoStageMove.isChecked():
+
+                self.stage_flag_first += 1
+                if self.stage_flag_first == 1:
+                    self.parent.pushButton_StageLight.setStyleSheet("background-color: yellow")
+                    self.parent.cbx_ResetSectionNum.setChecked(True)
+
+                #EWH: make sure to allow one pass to reset the section number count
+                if self.stage_flag_first >= 2:
+
+                    current_time_stage = time.time()
+
+                    if current_time_stage >= self.stage_flag_timer + self.stage_flag_time:
+                        self.parent.pushButton_StageLight.setStyleSheet("background-color: yellow")
+
+                    self.cut_nm = int(self.parent.textEdit_Section_Thickness.toPlainText()) #Add scaler (100 to run faster for testing) #REMOVE SCALER !!!!!
+                    self.cut_mm = self.cut_nm/1000000
+                    running_section_tot = int(self.parent.textEdit_SectionNum.toPlainText()) - self.previous_section_total
+                    self.cut_dist_mm =  running_section_tot * self.cut_mm
+                    #print(self.cut_dist_mm)
+
+                    if self.cut_dist_mm >= 0.01:
+                        if self.cut_dist_mm > 0.02:
+                            pass
+                            # self.parent.pushButton_StageLight.setStyleSheet("background-color: red")
+                            # print("ATUM: WARNING - stage requested to move greater than 0.02 mm! - Denied")
+                            # self.parent.cbx_AutoStageMove.setChecked(False)
+
+                        else:
+                            self.parent.pushButton_StageLight.setStyleSheet("background-color: green")
+                            self.stage_flag_timer = 2
+                            self.stage_flag_time = time.time()
+                            #lblStagesJogX.delete(0, END)
+                            #lblStagesJogX.insert(0, str(cut_dist_mm))
+                            Stages.moveYrel(self.cut_dist_mm) #Add scaler to run faster (10) #REMOVE SCALER!!!!!!!
+                            print("ATUM: Auto Move --------- moved {} mm distance".format(round(self.cut_dist_mm,4)))
+                            self.previous_section_total = int(self.parent.textEdit_SectionNum.toPlainText())
+                            self.cut_dist_mm = 0
+                            self.cut_mm = 0
+                            self.cut_nm = 0
+            else:
+                self.parent.pushButton_StageLight.setStyleSheet("background-color: gray")
+
+
+
+
         elif self.adjustment_counter > 0:
             self.adjustment_counter += 1
+        if self.adjustment_counter_2 > 0:
+            self.adjustment_counter_2 += 1
         del self.upStateStart[:-3]
         del self.downStateStart[:-3]
+
+
 
 class ATUMchopperlog(log.valuelogger):
     
@@ -520,6 +647,14 @@ class ATUMchopperlog(log.valuelogger):
     def datacollector(self):
         #EWH: for virtual mode, the gloabl variable virtual_counter is updated here!        
         global virtual_counter_ATUM
+
+        #Zaber = just display the current position
+        #loc_X = Stages.getAllPos()[0]
+        #loc_Y = Stages.getAllPos()[1]
+        #loc_Z = Stages.getAllPos()[2]
+        #self.parent.Display_Zaber_PosX.setHtml(str(loc_X))
+        #self.parent.Display_Zaber_PosY.setHtml(str(loc_Y))
+        #self.parent.Display_Zaber_PosZ.setHtml(str(loc_Z))
             
         if self.parent.unit_test == False:
             try: 
@@ -530,7 +665,7 @@ class ATUMchopperlog(log.valuelogger):
                 elif self.chopperSignal==0:
                     self.chopperSignal=1
             except nidaqmx.DaqError as e:
-                print(f"Nidaq error detected: {e}")
+                print("Nidaq error detected: {}".format(e))
         
         # # # Virtual Stuff - ignore # # # 
         else:
@@ -662,10 +797,115 @@ class mainGUI(QtWidgets.QMainWindow):
         self.UpdateWindowTitle()
         self.SetupGUIState(self)
 
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PosX.setHtml(str(loc_X))
+        self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
         print("Show GUI...")
         self.show()
 
+        #EWH: for displaying the print statements
+        sys.stdout = self
+
+
     # # # Functions for GUI Buttons # # #
+
+    # EWH: for displaying print statments in GUI
+
+    def write(self, text):
+        self.textEdit_TextConsole.moveCursor(self.textEdit_TextConsole.textCursor().End)
+        self.textEdit_TextConsole.insertPlainText(text)
+        self.textEdit_TextConsole.moveCursor(self.textEdit_TextConsole.textCursor().End)
+        #QApplication.processEvents()  # Update the GUI
+
+    # EWH: Zaber Controls
+
+    def clkStagesHome(self):
+        Stages.homeAll()
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PosX.setHtml(str(loc_X))
+        self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
+    def clkStagesStow(self):
+        Stages.moveToStow()
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PosX.setHtml(str(loc_X))
+        self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
+    def clkStagesSetPickup(self):
+        Stages.setPickupPositionNoOffset()
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PickupPosX.setHtml(str(loc_X))
+        self.Display_Zaber_PickupPosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PickupPosZ.setHtml(str(loc_Z))
+
+    def clkStagesMoveToPickup(self):
+        Stages.moveToPickup()
+        self.clkStagesParking()
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PosX.setHtml(str(loc_X))
+        self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
+    def clkStagesParking(self):
+        action = Stages.getParkState()[0]
+        print('ATUM Stage: Action = ' + action)
+        if action == "Unpark":
+            Stages.Unpark()
+            self.pushButton_ZaberPark.setStyleSheet("background-color: green")
+        else:
+            Stages.Park()
+            self.pushButton_ZaberPark.setStyleSheet("background-color: red")
+
+    # move-to button clicks
+    def clkStagesMove(self):
+        move_X = self.sbx_ZaberMove_X.value()
+        move_Y = self.sbx_ZaberMove_Y.value()
+        move_Z = self.sbx_ZaberMove_Z.value()
+        if move_X > 0:
+            Stages.moveXabs(move_X)
+            loc_X = round(Stages.getAllPos()[0],2)
+            self.Display_Zaber_PosX.setHtml(str(loc_X))
+        if move_Y > 0:
+            Stages.moveYabs(move_Y)
+            loc_Y = round(Stages.getAllPos()[1],2)
+            self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        if move_Z > 0:
+            Stages.moveZabs(move_Z)
+            loc_Z = round(Stages.getAllPos()[0],2)
+            self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
+    # jog button clicks
+    def clkStagesJog(self):
+        jog_X = self.sbx_ZaberJog_X.value()
+        jog_Y = self.sbx_ZaberJog_Y.value()
+        jog_Z = self.sbx_ZaberJog_Z.value()
+        Stages.moveXrel(jog_X)
+        Stages.moveYrel(jog_Y)
+        Stages.moveZrel(jog_Z)
+        loc_X = round(Stages.getAllPos()[0], 2)
+        loc_Y = round(Stages.getAllPos()[1], 2)
+        loc_Z = round(Stages.getAllPos()[2], 2)
+        self.Display_Zaber_PosX.setHtml(str(loc_X))
+        self.Display_Zaber_PosY.setHtml(str(loc_Y))
+        self.Display_Zaber_PosZ.setHtml(str(loc_Z))
+
+
+
+    #
 
     def setTapeSpeed(self,value=None):
         if value is None:
@@ -966,6 +1206,14 @@ class mainGUI(QtWidgets.QMainWindow):
         self.btn_goEW.clicked.connect(self.goEW)
         self.btn_getNS.clicked.connect(self.getNS)
         self.btn_goNS.clicked.connect(self.goNS)
+
+        self.pushButton_ZaberPark.clicked.connect(self.clkStagesParking)
+        self.pushButton_ZaberMove.clicked.connect(self.clkStagesMove)
+        self.pushButton_ZaberJog.clicked.connect(self.clkStagesJog)
+        self.pushButton_ZaberHome.clicked.connect(self.clkStagesHome)
+        self.pushButton_ZaberStow.clicked.connect(self.clkStagesStow)
+        self.pushButton_ZaberSetPickup.clicked.connect(self.clkStagesSetPickup)
+        self.pushButton_ZaberMovePickup.clicked.connect(self.clkStagesMoveToPickup)
         #self.btn_GetTension.clicked.connect(self.getTension)
 
     #EWH: start the ATUM

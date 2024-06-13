@@ -331,6 +331,26 @@ class waterlevellog(log.valuelogger):
                 self.bad_pump_warning = False
                 self.parent.DisplayCurrentWarningTime.setHtml(str(0))
 
+        # EWH: adding a feature where the user can break the lock at any time.
+        if self.parent.cbx_UserEndWarning.isChecked():
+            first_pass_after_warning = False
+            time_for_green = 0
+            bad_pump_tracking = [0, 0, 0, 0]
+            bad_pump_tracking_gate_1 = 1
+            bad_pump_1 = True
+            bad_pump_2 = True
+            bad_pump_3 = True
+            bad_pump_4 = True
+            bad_pump_tracking_pass = 0
+            bad_pump_warning = False
+            bad_pump_warning_timer = 0
+            warning_message_1 = 1
+            warning_message_2 = 1
+            warning_active = False
+            self.parent.cbx_pumpOn.setChecked(True)
+            print("User Ended Warning Period ----- All Warning Settings Reset")
+            self.parent.cbx_UserEndWarning.setChecked(False)
+
         #EWH: everything below this is when the user has activated the pump on via the GUI. 
         if self.parent.cbx_pumpOn.isChecked():
             
@@ -537,8 +557,8 @@ class mainGUI(QtWidgets.QMainWindow):
         self.setWindowState(QtCore.Qt.WindowMaximized)
         
         
-#        serial_port = serial.Serial("COM11", 9600)
-#        print("Port is open")
+        #serial_port = serial.Serial("COM11", 9600)
+        #print("Port is open")
 #        
 #        except serial.SerialException:
 #          serial.Serial("COM11", 9600).close()
@@ -778,8 +798,8 @@ class mainGUI(QtWidgets.QMainWindow):
         Pump.pump_ser.close()
         if self.CamTh.isRunning():
             self.CamTh.terminate()
-            serial.Serial("COM11", 9600).close()
-            print("Eric closed the COM11 port.")
+            #serial_port.close()
+            #print("Eric closed the COM11 port.")
         event.accept()
 
 
